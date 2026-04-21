@@ -10,8 +10,8 @@
 #     with:
 #       license-key: ${{ secrets.PULLGUARD_LICENSE_KEY }}
 
-name: 'PullGuard'
-description: 'Code quality, security, supply-chain & compliance on every PR. 32 analyzers, N-hop taint tracking, GitHub Actions + Dockerfile + git-history secret scanning, SOC 2 evidence, cost estimation.'
+name: 'PullGuard Code Scanner'
+description: 'Code quality, security & compliance on every PR. 32 analyzers, N-hop taint tracking, SOC 2 evidence, cost estimation.'
 author: 'PullGuard'
 
 branding:
