@@ -74,6 +74,19 @@ runs:
       # env var mapping and works as a composite action step.
       run: |
         docker pull ghcr.io/pullguard-dev/pullguard:latest
+
+        # WHY: Copy the GitHub event payload into the workspace so the
+        # container can read it. The runner's $GITHUB_EVENT_PATH lives on
+        # the HOST filesystem (e.g. /home/runner/work/_temp/...); the
+        # container only sees the bind-mounted workspace. Without this copy,
+        # entrypoint.js cannot determine the PR number → skips the PR
+        # comment entirely. Caught by E2E: PR #4 merged clean but the
+        # fixture-repo scan logged "PR comment skipped — could not read
+        # event payload: ENOENT '/workspace/.github-event.json'".
+        if [ -n "${GITHUB_EVENT_PATH:-}" ] && [ -f "${GITHUB_EVENT_PATH}" ]; then
+          cp "${GITHUB_EVENT_PATH}" "${{ github.workspace }}/.github-event.json"
+        fi
+
         docker run --rm \
           -v "${{ github.workspace }}:/workspace" \
           -e GITHUB_TOKEN="${{ github.token }}" \
@@ -105,8 +118,13 @@ runs:
       uses: actions/upload-artifact@v4
       with:
         name: pullguard-report
+        # WHY: The entrypoint writes pullguard-report.{json,md} inside
+        # GITHUB_WORKSPACE (see entrypoint.js REPORT_FILE). The old
+        # drift-report.* paths were a rebrand-era leftover — upload-artifact
+        # silently skipped with "No files were found" for every customer
+        # scan. No artifact appeared on the workflow run page.
         path: |
-          drift-report.json
-          drift-report.md
+          pullguard-report.json
+          pullguard-report.md
         retention-days: 30
         if-no-files-found: ignore
