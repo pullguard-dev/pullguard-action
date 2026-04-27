@@ -1,6 +1,6 @@
 # WHY: GitHub Marketplace Action for one-line PullGuard setup.
 # Free tier (14 analyzers) works with no license key.
-# Pro (31 analyzers / 1 repo) / Team (all 32 / 10 repos) / Enterprise (unlimited, contact sales) unlocked via PULLGUARD_LICENSE_KEY secret.
+# Pro (42 analyzers / 1 repo) / Team (all 43 / 10 repos) / Enterprise (unlimited, contact sales) unlocked via PULLGUARD_LICENSE_KEY secret.
 #
 # Usage:
 #   - uses: pullguard-dev/pullguard-action@v1
@@ -11,7 +11,7 @@
 #       license-key: ${{ secrets.PULLGUARD_LICENSE_KEY }}
 
 name: 'PullGuard Code Scanner'
-description: 'Code quality, security & compliance on every PR. 32 analyzers, N-hop taint tracking, SOC 2 evidence, cost estimation.'
+description: 'Code quality, security & compliance on every PR. 43 analyzers, N-hop taint tracking, SOC 2 evidence, cost estimation.'
 author: 'PullGuard'
 
 branding:
@@ -20,7 +20,7 @@ branding:
 
 inputs:
   license-key:
-    description: 'PullGuard license key — unlocks Pro (31 of 32 analyzers; 1 repo), Team (all 32 incl. custom-rules + SOC 2; 10 repos), or Enterprise (all 32; unlimited repos + SSO + SLA — contact sales). Free tier (14 analyzers: core + dangerous-files + repo-hygiene) works without a key.'
+    description: 'PullGuard license key — unlocks Pro (42 of 43 analyzers; 1 repo), Team (all 43 incl. custom-rules + SOC 2; 10 repos), or Enterprise (all 43; unlimited repos + SSO + SLA — contact sales). Free tier (14 analyzers: core + dangerous-files + repo-hygiene) works without a key.'
     required: false
     default: ''
   fail-on-severity:
