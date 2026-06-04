@@ -12,6 +12,69 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.2.2] — 2026-06-04
+
+Two efforts in one image: **Tier-2 zero-day rule precision** and a **signal-quality false-positive / false-negative batch** from an enterprise pre-review audit. The net effect on your scans is less noise and a couple of genuine issues that were previously under-reported. Pin it with `image-pin: v1.2.2`, or stay on `image-pin: 1` (re-pointed to v1.2.2) for the improvements on your next run.
+
+### Fixed — fewer false positives
+
+- **Authentication entry points are no longer flagged "missing authentication."**
+  A login / signup / oauth / SSO route is unauthenticated by design — you can't
+  require a session to reach the login page. The suppression is deliberately
+  narrow: infra/ops endpoints (`/health`, `/metrics`, actuator) and protected
+  routes that merely contain a `password` segment (e.g. `/account/password`)
+  **still** flag, because those can be genuine exposures.
+- **Environment variables are no longer treated as attacker input.** Config-driven
+  code like `fetch(process.env.API_URL)` or `exec(System.getenv("CMD"))` is no
+  longer reported as SSRF / injection — environment variables (and JVM system
+  properties) are operator-controlled configuration, matching the default
+  behaviour of CodeQL and Semgrep. Removes a class of false positives on frontend
+  and config-driven code. Command-line args, stdin, and all HTTP request inputs
+  remain taint sources, so genuine injection flows are unaffected.
+- **Behavioural security findings on test / fixture / mock / Storybook files are
+  suppressed.** A SQL-injection, XSS, or prototype-pollution pattern inside a
+  `.spec.ts`, a codemod `__testfixtures__` sample, a `__mocks__` file, a generated
+  `mockServiceWorker.js`, or a Storybook story is test/demonstration code that
+  never runs in production. Deliberately narrow — it does NOT touch `examples/`,
+  `components/`, or `pages/` (real runnable code), and committed secrets are still
+  flagged everywhere.
+- **Frontend `router.post` / `app.delete` (React / axios client wrappers) are no
+  longer mistaken for missing-CSRF Express routes.**
+- **Optional-chaining (`?.`) and nullish-coalescing (`??`) no longer inflate
+  cyclomatic-complexity findings**; genuine ternaries still count.
+- **Clone detection skips test / fixture / migration boilerplate.**
+
+### Fixed — closed security false negatives
+
+- **CVE severity is no longer silently downgraded** when the vulnerability feed
+  returns a CVSS *vector string* instead of a numeric score (the official CVSS
+  v3.1 base score is now computed).
+- **GitHub Actions script-injection is now detected in `actions/github-script`
+  `with.script` bodies** (privileged `GITHUB_TOKEN` context), not just shell
+  `run:` blocks.
+- **Tier-2 zero-day precision (Spring):** `@RequestParam` / `@PathVariable` /
+  `@RequestHeader`-decorated parameters are now bound as taint sources — closing
+  SpEL / Log4Shell / Text4Shell false negatives on textbook Spring controllers.
+  Text4Shell (Commons Text) detection now fires on all canonical idioms, and
+  SpEL no longer mis-labels OGNL findings.
+
+### Config surfaces that now work
+
+- `.driftrc.yml` path-like excludes (`src/legacy`, `deployment/k8s`) take effect
+  (previously had to be written as `*` globs).
+- Per-analyzer `analyzers.<id>.severity` override is applied.
+- `thresholds.duplication.minBlockSize` is honoured.
+
+### Image tags
+
+- `:v1.2.2`, `:1.2.2`, `:1.2`, `:1`, and `:latest` re-pointed to the new digest
+  (`sha256:d79455c9807daff6c9856178e48626db733104edbcbd1303c45fdb15998bc183`).
+- `:v1.2.1` and `:1.2.1` are retained at their existing digest
+  (`sha256:485925d26447191520fd68b3e3f1df9c5fabcabd760fc235c38214ffd76a589f`)
+  for anyone pinned.
+
+---
+
 ## [1.2.1] — 2026-05-28
 
 Signal-quality patch. A multi-repo rollout sweep across real customer-class codebases (NodeGoat, DVWA, WebGoat, Juice Shop, plus a representative React/Vite admin app and a TypeScript ops-desk UI) surfaced a cluster of false positives and one stateful-regex false negative. All closed structurally so the fixes hold across your codebase. Pin it with `image-pin: v1.2.1`, or stay on `image-pin: 1` (re-pointed to v1.2.1) for the precision wins on your next run.
