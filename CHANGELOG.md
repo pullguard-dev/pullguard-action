@@ -12,6 +12,44 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.2.3] — 2026-06-05
+
+A signal-quality release: substantially fewer false positives, several closed false negatives, and more accurate CVE matching — so the findings on your PRs are actionable as-is. Every change ships with regression tests and was validated against real vulnerable applications with **no loss of genuine findings**. Pin it with `image-pin: v1.2.3`, or stay on `image-pin: 1` (re-pointed to v1.2.3) to pick it up on your next run.
+
+### Fixed — fewer false positives
+
+- **Findings now point at the exact file and line.** A large fraction of findings previously had no usable location (or pointed at the wrong file), which made them hard to action. The scanner now backfills an accurate location for every finding, and SARIF uploads to GitHub Code Scanning always carry a valid location.
+- **Infrastructure config no longer false-flagged as hardcoded secrets.** Environment references, placeholders, and CloudFormation generated/resolved secrets (`GenerateSecretString`, `{{resolve:secretsmanager:…}}`, and CamelCase resource names ending `…Secret:`) are no longer reported as committed secrets. Real committed secrets — including in comments — still flag.
+- **Idiomatic template / redirect / reflection code is no longer flagged as critical.** Server-side template rendering, redirects, dynamic reflection, and `jwt.decode` are now only reported when attacker-controlled input actually reaches them — not on routine framework code.
+- **Unsafe-deserializer mentions inside comments / documentation are no longer flagged** (only real code is).
+
+### Fixed — closed security false negatives
+
+- **Spring & JAX-RS controllers are now fully covered.** Request parameters via `@RequestParam` / `@PathVariable` / `@RequestBody` / `@RequestHeader` (and JAX-RS `@QueryParam` / `@PathParam` / `@FormParam` / …) flowing into SQL, XPath, LDAP, email-header, open-redirect, or template sinks are now detected — previously many of these were silently missed.
+- **More raw sinks detected:** Spring `JdbcTemplate` raw SQL, Python `subprocess`/`os.exec*`, Prisma `$queryRawUnsafe`/`$executeRawUnsafe`, Python `urlopen`/`aiohttp`, PHP `unserialize`, and .NET binary/SOAP deserializers — each only when untrusted input reaches them.
+- **Path-traversal, log-injection, and arrow-function-handler flows** that were previously missed are now detected.
+
+### Fixed — more accurate CVE matching
+
+- **Version comparison rewritten** to correctly handle Maven release qualifiers (`.Final`/`.GA`/`.RELEASE`), Red Hat rebuild suffixes, semantic-version pre-releases, and PyPI/PEP 440 — fixing both false CVE matches against already-patched versions and missed pre-release vulnerabilities.
+- **Maven BOM-managed dependencies resolve their real version** (via `<properties>` / `${…}` / platform BOM) instead of being flagged for every CVE for the package — e.g. a Quarkus platform dependency is no longer flagged for CVEs that were fixed in a lower patch.
+
+### Changed — clearer reports
+
+- **Multiple findings of the same type in one file now show a count and the affected lines** on every report surface (PR comment, step summary, text), instead of collapsing to a single under-reported row.
+- **If an analyzer times out, the report now says so explicitly** (and names it) rather than silently omitting its findings — so an incomplete check is never mistaken for a clean result.
+- SARIF reports the real scanner version; `except Exception:` is described accurately and graded appropriately.
+
+### Changed — honest claims
+
+- Enterprise SSO / audit-log / RBAC are labelled as roadmap / contracted deliverables rather than shipping features; analyzer counts, compliance scope wording, and an AI-signal description were corrected to match what the scanner does.
+
+### Privacy & transparency
+
+- The privacy policy now discloses our processing sub-processors (Cloudflare, Resend, GitHub) and gives accurate per-endpoint data-retention details.
+
+---
+
 ## [1.2.2] — 2026-06-04
 
 Two efforts in one image: **Tier-2 zero-day rule precision** and a **signal-quality false-positive / false-negative batch** from an enterprise pre-review audit. The net effect on your scans is less noise and a couple of genuine issues that were previously under-reported. Pin it with `image-pin: v1.2.2`, or stay on `image-pin: 1` (re-pointed to v1.2.2) for the improvements on your next run.
