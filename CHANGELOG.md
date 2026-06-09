@@ -12,6 +12,27 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.2.4] — 2026-06-09
+
+A precision release for Java codebases: substantially fewer false positives on Spring / JAX-RS / CMS stacks, broader genuine coverage, and clearer findings — so the results on your PRs hold up to scrutiny. Every change ships with regression tests and was validated with no loss of genuine findings. Pin it with `image-pin: v1.2.4`, or stay on `image-pin: 1` (re-pointed to v1.2.4) to pick it up on your next run.
+
+### Fixed — fewer false positives
+
+- **Java is much quieter and more accurate.** Bean setters are no longer mistaken for JavaScript timers; parameterised SLF4J logging is no longer flagged as Log4Shell when Log4j2 isn't on the classpath; constant-time comparison checks no longer fire on ordinary collection/value `.equals()`; generated-secret blocks in CloudFormation and already-patched dependency versions are recognised correctly.
+- **Cleaner output.** Readable taint labels (no raw regex), consistent occurrence counts, descriptions truncated at word boundaries, and an explicit cell for repository-wide findings.
+
+### Added
+
+- **Detects hardcoded developer/home paths** (e.g. `/Users/<name>/…`) that leak a username and break portability — CI and system paths are excluded.
+- **Broader genuine coverage** of request inputs and query/output sinks on Java (Spring + JAX-RS) stacks.
+- **Workflow scanning** now covers every job in a multi-job workflow, plus `secrets: inherit` and clone-then-execute supply-chain patterns.
+
+### Docs
+
+- Documented `.driftrc.yml` configuration and the `.pullguardignore` per-finding suppression file.
+
+---
+
 ## [1.2.3] — 2026-06-05
 
 A signal-quality release: substantially fewer false positives, several closed false negatives, and more accurate CVE matching — so the findings on your PRs are actionable as-is. Every change ships with regression tests and was validated against real vulnerable applications with **no loss of genuine findings**. Pin it with `image-pin: v1.2.3`, or stay on `image-pin: 1` (re-pointed to v1.2.3) to pick it up on your next run.
