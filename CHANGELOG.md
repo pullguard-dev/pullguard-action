@@ -12,6 +12,17 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.2.6] — 2026-06-10
+
+A precision release for Java ReDoS detection. Catastrophic-backtracking regular expressions are now detected on the inputs that actually matter, without new false positives. Pin it with `image-pin: v1.2.6`, or stay on `image-pin: 1` (re-pointed to v1.2.6).
+
+### Fixed
+
+- **ReDoS (CWE-1333) now catches the real attacker-input patterns.** Detection previously recognised only a narrow set of input sources, so dangerous regexes applied to webhook/event payloads, log/field values, and method parameters were missed. It now fires on a catastrophic-backtracking regex applied to any value that is **not provably internal** — covering inline `replaceAll`/`replaceFirst`/`matches`/`split`, chained receivers, multi-line calls, and precompiled `Pattern` fields applied elsewhere. Regexes on compile-time constants or configuration values stay silent, and possessive/atomic and character-class-only patterns are recognised as safe — so the zero-false-positive bar holds.
+- **No false "missing permissions" finding on a misplaced config file.** A YAML under `.github/workflows/` with no `on:` trigger and no `jobs:` is treated as a non-workflow config file, not flagged for a missing `permissions:` block.
+
+---
+
 ## [1.2.5] — 2026-06-10
 
 A security-depth release for Java. PullGuard now catches two classes of real vulnerability that a leading free SAST tool flagged but earlier versions missed — at PullGuard's zero-false-positive bar (it matches the genuine findings without that tool's noise). Pin it with `image-pin: v1.2.5`, or stay on `image-pin: 1` (re-pointed to v1.2.5).
