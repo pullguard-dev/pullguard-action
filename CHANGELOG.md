@@ -12,6 +12,24 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.2.5] — 2026-06-10
+
+A security-depth release for Java. PullGuard now catches two classes of real vulnerability that a leading free SAST tool flagged but earlier versions missed — at PullGuard's zero-false-positive bar (it matches the genuine findings without that tool's noise). Pin it with `image-pin: v1.2.5`, or stay on `image-pin: 1` (re-pointed to v1.2.5).
+
+### Added — security depth
+
+- **Insecure temporary files (CWE-377).** Flags `File`/`Files.createTempFile` with no directory argument — it lands in the world-writable system temp dir, a time-of-check/time-of-use race on shared hosts. Calls that pass an explicit private directory are correctly treated as safe.
+- **Regular-expression denial of service (ReDoS, CWE-1333).** Flags backtracking-prone regexes that run on attacker-controlled input (request bodies, log lines, external URLs). It fires only when the dangerous pattern actually runs *on* untrusted data — patterns on configuration values, linear character-class patterns, and non-backtracking (possessive/atomic) regexes are deliberately never flagged.
+- **Broader Java coverage:** raw request bodies, query-predicate-builder injection, and script-engine evaluation are now tracked; credential defaults committed to secret-marked fields are flagged.
+
+### Fixed
+
+- **ReDoS detection is more precise:** no more false positives on division operators in minified code, comment banners, regex metacharacters inside character classes, or non-backtracking patterns. Genuine catastrophic-backtracking patterns are still caught.
+- **Dependency-CVE findings carry structured version data** (package, matched version, fixed versions), so a finding that changes between scans is explainable from the report. A caret-ranged dependency CVE that could previously disappear silently is now pinned.
+- **Workflow findings** that group several different unpinned actions now list each action with its own line.
+
+---
+
 ## [1.2.4] — 2026-06-09
 
 A precision release for Java codebases: substantially fewer false positives on Spring / JAX-RS / CMS stacks, broader genuine coverage, and clearer findings — so the results on your PRs hold up to scrutiny. Every change ships with regression tests and was validated with no loss of genuine findings. Pin it with `image-pin: v1.2.4`, or stay on `image-pin: 1` (re-pointed to v1.2.4) to pick it up on your next run.
