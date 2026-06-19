@@ -12,6 +12,34 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.3.0] — 2026-06-19
+
+The **AI-era security release**. PullGuard adds a new category of checks for the security risks that AI-assisted development introduces — both the code your team writes with AI and the code that calls AI — alongside continued false-positive reduction. **44 analyzers** (Free 14 / Pro 42 / Team & Enterprise 44). Pin it with `image-pin: v1.3.0`, or stay on `image-pin: 1` (re-pointed to v1.3.0) to pick it up on your next run.
+
+### Added — AI-era security
+
+- **Protect sensitive data from AI** — surfaces where secrets or personal data could be exposed to an AI model. *(Pro and above)*
+- **Untrusted input reaching AI** — flags attacker-influenced data flowing into AI and agent features.
+- **Risky AI-generated code** — catches common insecure defaults and unsafe patterns that AI coding assistants frequently produce, including dependencies that don't resolve to a real package.
+- **AI safety & cost guardrails** — flags disabled AI safety controls and unbounded autonomous-agent behaviour.
+- **AI × security risk scoring** — highlights the most dangerous combinations so they rise to the top of the report.
+- **AI governance evidence** — supports transparency obligations under EU AI Act Article 50. *(Enterprise)*
+
+### Added — configuration
+
+- Import your existing rules and a complete configuration reference, so PullGuard fits your team's policies.
+
+### Changed
+
+- Replaced an earlier AI-origin heuristic with the concrete AI security checks above.
+- Compliance evidence now renders consistently in the PR comment and step summary.
+
+### Fixed
+
+- Further false-positive reductions across multiple languages.
+
+---
+
 ## [1.2.6] — 2026-06-10
 
 A precision release for Java ReDoS detection. Catastrophic-backtracking regular expressions are now detected on the inputs that actually matter, without new false positives. Pin it with `image-pin: v1.2.6`, or stay on `image-pin: 1` (re-pointed to v1.2.6).
