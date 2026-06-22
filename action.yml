@@ -1,6 +1,6 @@
 # WHY: GitHub Marketplace Action for one-line PullGuard setup.
 # Free tier (14 analyzers) works with no license key.
-# Pro (42 analyzers / 1 repo) / Team (all 43 / 10 repos) / Enterprise (unlimited, contact sales) unlocked via PULLGUARD_LICENSE_KEY secret.
+# Pro (42 analyzers / 1 repo) / Team (all 44 / 10 repos) / Enterprise (unlimited, contact sales) unlocked via PULLGUARD_LICENSE_KEY secret.
 #
 # Usage:
 #   - uses: pullguard-dev/pullguard-action@v1
@@ -11,7 +11,7 @@
 #       license-key: ${{ secrets.PULLGUARD_LICENSE_KEY }}
 
 name: 'PullGuard Code Scanner'
-description: 'Code quality, security & compliance on every PR. 43 analyzers, N-hop taint tracking, SOC 2 evidence, cost estimation.'
+description: 'Code quality, security & compliance on every PR. 44 analyzers, N-hop taint tracking, SOC 2 evidence, cost estimation.'
 author: 'PullGuard'
 
 branding:
@@ -20,7 +20,7 @@ branding:
 
 inputs:
   license-key:
-    description: 'PullGuard license key — unlocks Pro (42 of 43 analyzers; 1 repo), Team (all 43 incl. custom-rules + SOC 2; 10 repos), or Enterprise (all 43; unlimited repos + SSO + SLA — contact sales). Free tier (14 analyzers: core + dangerous-files + repo-hygiene) works without a key.'
+    description: 'PullGuard license key — unlocks Pro (42 of 44 analyzers; 1 repo), Team (all 44 incl. custom-rules + SOC 2; 10 repos), or Enterprise (all 44; unlimited repos + SSO + SLA — contact sales). Free tier (14 analyzers: core + dangerous-files + repo-hygiene) works without a key.'
     required: false
     default: ''
   fail-on-severity:
@@ -43,6 +43,14 @@ inputs:
     description: 'When true, POST the scan report to the PullGuard GitHub App backend (/api/app/report) so findings appear as native Check Run annotations on the PR Files-changed view. Requires the PullGuard App to be installed on the repo. Default: false (backwards-compatible; Step Summary + PR comment still render).'
     required: false
     default: 'false'
+  delta:
+    description: 'Force "Clean as You Code" delta filtering — surface only findings introduced relative to base-ref (plus security criticals) — on NON-PR events too (push, schedule, workflow_dispatch). On pull_request this is already automatic. Use with base-ref to diff against a chosen ref. Default: false (full inventory off-PR).'
+    required: false
+    default: 'false'
+  base-ref:
+    description: 'Git ref to diff against when delta filtering off-PR (e.g. a release tag like v1.2.0, or origin/main). Ignored on pull_request events (the PR target branch is used automatically). Requires a deep enough checkout (actions/checkout fetch-depth: 0) for the ref to be present.'
+    required: false
+    default: ''
   image-pin:
     description: 'Which scanner image the action runs. Default `1` — the moving major-line tag that always resolves to the newest stable v1.x.y RELEASE (re-pointed only when a signed release is cut, never per-merge), so scans stay current with security improvements yet reproducible. Set `latest` for the bleeding-edge image rebuilt on every merge to main. Pin an exact release tag (`v1.0.0`) or a `sha256:<hex>` digest to freeze one version for change-controlled / air-gapped environments. SHA tags (e.g. `4fdfc1a`) are retained 7 days; release tags `v[0-9]+.[0-9]+.[0-9]+` are preserved forever and the `1` / `1.0` lines re-point to them (ADR-0054 Phase A / ADR-0066). Examples: `image-pin: 1`, `image-pin: latest`, `image-pin: v1.0.0`, `image-pin: sha256:4ab06b5dde376477c9747406da72f6bb80ff471490a5af200d7ff3943f26355e`.'
     required: false
@@ -72,6 +80,8 @@ runs:
         PULLGUARD_CONFIG: ${{ inputs.config }}
         PULLGUARD_SCAN_PATH: ${{ inputs.path }}
         PULLGUARD_REPORT_TO_APP: ${{ inputs.report-to-app }}
+        PULLGUARD_DELTA: ${{ inputs.delta }}
+        PULLGUARD_BASE_REF: ${{ inputs.base-ref }}
         PULLGUARD_IMAGE_PIN: ${{ inputs.image-pin }}
       # WHY: Pull and run the Docker image directly. The entrypoint handles
       # everything: scan, step summary, PR comment, severity threshold, outputs.
@@ -140,6 +150,8 @@ runs:
           -e PULLGUARD_CONFIG="${PULLGUARD_CONFIG}" \
           -e PULLGUARD_SCAN_PATH="${PULLGUARD_SCAN_PATH}" \
           -e PULLGUARD_REPORT_TO_APP="${PULLGUARD_REPORT_TO_APP}" \
+          -e PULLGUARD_DELTA="${PULLGUARD_DELTA}" \
+          -e PULLGUARD_BASE_REF="${PULLGUARD_BASE_REF}" \
           "${IMAGE_REF}"
 
         # WHY: Copy outputs from container-written files to actual GitHub paths
@@ -163,5 +175,7 @@ runs:
         path: |
           pullguard-report.json
           pullguard-report.md
+          pullguard-report.html
+          pullguard-dashboard.html
         retention-days: 30
         if-no-files-found: ignore
