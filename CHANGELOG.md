@@ -12,6 +12,22 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.3.2] — 2026-06-24
+
+**Baseline accuracy.** Your PR "new findings only" view now reflects your plan's full analyzer set, so pre-existing work is correctly suppressed on licensed scans.
+
+### Added
+- **Tidy pre-existing security in PR comments** — an opt-in setting collapses security findings that already exist in your baseline into a separate, counted section, so a PR's inline list focuses on what that PR introduced. New security findings still appear inline, and every security finding stays in the full report and the build gate — nothing is hidden.
+- **Send results to a self-hosted dashboard (Enterprise)** — new Action inputs let your pipeline post scan results to a PullGuard server you run inside your own boundary. Results only — your source never leaves your runners.
+
+### Fixed
+- **Baselines now reflect your plan's analyzers.** Generate your baseline with the same Action/image you scan with so "new findings only" works correctly on licensed scans.
+
+### Notes
+- Security findings always appear on a PR by design — the delta hides resolved-elsewhere work, never security.
+
+---
+
 ## [1.3.1] — 2026-06-23
 
 **Reporting, dashboards & visibility.** Turn scan results into something every role can use — all **air-gapped**: single self-contained HTML files, no network.
