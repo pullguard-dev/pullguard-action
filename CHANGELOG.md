@@ -12,6 +12,25 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.3.1] — 2026-06-23
+
+**Reporting, dashboards & visibility.** Turn scan results into something every role can use — all **air-gapped**: single self-contained HTML files, no network.
+
+### Added
+- **Self-contained HTML report** — findings with a severity breakdown, fix-cost, finding dates, and **clickable links straight to the offending file and line** on your git host.
+- **Over-time dashboard** — score / findings / fix-cost / AI-era-risk trends, with **drill-down to a scan's findings and their exact file:line**, finding owner & age, exploit priority, a **branch / PR view selector**, and **SOC 2 posture over time**.
+- **Portfolio view** across every repository PullGuard runs on.
+- **Light / dark theme** toggle.
+- **Finding date-stamps** ("first discovered" + introduced date/author), **triage** (acknowledge a finding without suppressing it), **baselines beyond PRs** (only-new-findings on pushes/schedules), and an **SLA / aging build gate**.
+- Report + dashboard are **rendered and uploaded as CI artifacts** on every run.
+
+### Fixed
+- Java false positive where large files could report "0 functions".
+- Duplication percentage could exceed 100%; boilerplate data-class duplication is now treated as an observation rather than actionable cost.
+- `--version` now reports the real release version.
+
+---
+
 ## [1.3.0] — 2026-06-19
 
 The **AI-era security release**. PullGuard adds a new category of checks for the security risks that AI-assisted development introduces — both the code your team writes with AI and the code that calls AI — alongside continued false-positive reduction. **44 analyzers** (Free 14 / Pro 42 / Team & Enterprise 44). Pin it with `image-pin: v1.3.0`, or stay on `image-pin: 1` (re-pointed to v1.3.0) to pick it up on your next run.
