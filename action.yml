@@ -55,6 +55,18 @@ inputs:
     description: 'Which scanner image the action runs. Default `1` — the moving major-line tag that always resolves to the newest stable v1.x.y RELEASE (re-pointed only when a signed release is cut, never per-merge), so scans stay current with security improvements yet reproducible. Set `latest` for the bleeding-edge image rebuilt on every merge to main. Pin an exact release tag (`v1.0.0`) or a `sha256:<hex>` digest to freeze one version for change-controlled / air-gapped environments. SHA tags (e.g. `4fdfc1a`) are retained 7 days; release tags `v[0-9]+.[0-9]+.[0-9]+` are preserved forever and the `1` / `1.0` lines re-point to them (ADR-0054 Phase A / ADR-0066). Examples: `image-pin: 1`, `image-pin: latest`, `image-pin: v1.0.0`, `image-pin: sha256:4ab06b5dde376477c9747406da72f6bb80ff471490a5af200d7ff3943f26355e`.'
     required: false
     default: '1'
+  collapse-preexisting-security:
+    description: 'When true, in delta mode the PR comment collapses PRE-EXISTING security findings (already in your committed baseline) into a separate counted section, so the inline list shows what THIS PR introduced. New security findings still surface inline, and every security finding remains in the full report, SARIF, and the fail-on-severity gate (nothing is hidden). Requires a tier-matched baseline. Default: false.'
+    required: false
+    default: 'false'
+  server-url:
+    description: 'Optional: base URL of your self-hosted PullGuard server (ADR-0087), e.g. https://pullguard.yourcompany.com. When set (with server-token), the scan RESULTS (not source) are POSTed to <url>/api/scans after the scan so they appear on your central dashboard. Best-effort — a failed upload never fails the scan.'
+    required: false
+    default: ''
+  server-token:
+    description: 'Ingest bearer token for your self-hosted PullGuard server (pair with server-url). Store as a secret.'
+    required: false
+    default: ''
 
 outputs:
   score:
@@ -83,6 +95,9 @@ runs:
         PULLGUARD_DELTA: ${{ inputs.delta }}
         PULLGUARD_BASE_REF: ${{ inputs.base-ref }}
         PULLGUARD_IMAGE_PIN: ${{ inputs.image-pin }}
+        PULLGUARD_COLLAPSE_PREEXISTING_SECURITY: ${{ inputs.collapse-preexisting-security }}
+        PULLGUARD_SERVER_URL: ${{ inputs.server-url }}
+        PULLGUARD_SERVER_TOKEN: ${{ inputs.server-token }}
       # WHY: Pull and run the Docker image directly. The entrypoint handles
       # everything: scan, step summary, PR comment, severity threshold, outputs.
       # Using docker run instead of container: directive gives us control over
@@ -152,6 +167,9 @@ runs:
           -e PULLGUARD_REPORT_TO_APP="${PULLGUARD_REPORT_TO_APP}" \
           -e PULLGUARD_DELTA="${PULLGUARD_DELTA}" \
           -e PULLGUARD_BASE_REF="${PULLGUARD_BASE_REF}" \
+          -e PULLGUARD_COLLAPSE_PREEXISTING_SECURITY="${PULLGUARD_COLLAPSE_PREEXISTING_SECURITY}" \
+          -e PULLGUARD_SERVER_URL="${PULLGUARD_SERVER_URL}" \
+          -e PULLGUARD_SERVER_TOKEN="${PULLGUARD_SERVER_TOKEN}" \
           "${IMAGE_REF}"
 
         # WHY: Copy outputs from container-written files to actual GitHub paths
@@ -177,5 +195,6 @@ runs:
           pullguard-report.md
           pullguard-report.html
           pullguard-dashboard.html
+          pullguard.sarif
         retention-days: 30
         if-no-files-found: ignore
