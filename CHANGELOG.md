@@ -12,6 +12,18 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.3.3] — 2026-06-24
+
+**Self-maintaining baselines, finding ownership, and editor integration.**
+
+### Added
+- **Self-maintaining baseline** — a new Action input lets the scan that already runs on your base branch write and refresh your baseline itself, so your "new findings only" view stays accurate without a separate baseline step to keep in sync.
+- **Finding age & owner** — opt in to show each finding's "introduced" date and author (from your git history) in the HTML report and dashboard.
+- **Single sign-on for the self-hosted dashboard (Enterprise)** — log in to your self-hosted PullGuard dashboard with your identity provider (OIDC or SAML) and gate access by role. Your code and findings stay inside your own boundary.
+- **PullGuard for VS Code** — see your findings inline in the editor (Problems panel, quick-fixes, grade status bar), rendered from your scan report — no scanner runs in the editor.
+
+---
+
 ## [1.3.2] — 2026-06-24
 
 **Baseline accuracy.** Your PR "new findings only" view now reflects your plan's full analyzer set, so pre-existing work is correctly suppressed on licensed scans.

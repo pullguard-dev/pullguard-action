@@ -67,6 +67,14 @@ inputs:
     description: 'Ingest bearer token for your self-hosted PullGuard server (pair with server-url). Store as a secret.'
     required: false
     default: ''
+  update-baseline:
+    description: 'When true, write/refresh .drift-baseline.json from this scan and commit it. Run this on a PUSH to your base branch (e.g. develop/main) — a full scan at your license tier — so the committed baseline matches what PR-delta scans subtract against. Ignored on pull_request events. Your workflow must commit the updated file (see docs). This removes the separate keyed baseline-generation step. Default: false.'
+    required: false
+    default: 'false'
+  blame:
+    description: 'When true, annotate each finding with its git-blame "introduced" date, commit, and author, so the HTML report + dashboard artifacts show finding age and owner. Requires a deep checkout (actions/checkout fetch-depth: 0) for the history to be present; best-effort otherwise (findings just stay undated). Off by default — blame-per-finding adds scan latency. Default: false.'
+    required: false
+    default: 'false'
 
 outputs:
   score:
@@ -98,6 +106,8 @@ runs:
         PULLGUARD_COLLAPSE_PREEXISTING_SECURITY: ${{ inputs.collapse-preexisting-security }}
         PULLGUARD_SERVER_URL: ${{ inputs.server-url }}
         PULLGUARD_SERVER_TOKEN: ${{ inputs.server-token }}
+        PULLGUARD_UPDATE_BASELINE: ${{ inputs.update-baseline }}
+        PULLGUARD_BLAME: ${{ inputs.blame }}
       # WHY: Pull and run the Docker image directly. The entrypoint handles
       # everything: scan, step summary, PR comment, severity threshold, outputs.
       # Using docker run instead of container: directive gives us control over
@@ -170,6 +180,8 @@ runs:
           -e PULLGUARD_COLLAPSE_PREEXISTING_SECURITY="${PULLGUARD_COLLAPSE_PREEXISTING_SECURITY}" \
           -e PULLGUARD_SERVER_URL="${PULLGUARD_SERVER_URL}" \
           -e PULLGUARD_SERVER_TOKEN="${PULLGUARD_SERVER_TOKEN}" \
+          -e PULLGUARD_UPDATE_BASELINE="${PULLGUARD_UPDATE_BASELINE}" \
+          -e PULLGUARD_BLAME="${PULLGUARD_BLAME}" \
           "${IMAGE_REF}"
 
         # WHY: Copy outputs from container-written files to actual GitHub paths
