@@ -12,6 +12,38 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.4.0] — 2026-07-07
+
+**AI-era security & governance.** The biggest PullGuard release yet — see and govern everything AI touches in your codebase, with broader infrastructure coverage, sharper findings, and a verifiable supply chain. (This release also includes the security-hardening and Enterprise improvements previously previewed as 1.3.4, which was never published as its own image.)
+
+### Added
+- **AI usage inventory ("Shadow-AI map") — Enterprise.** A new view lists every external AI provider your code calls — which providers, which models, and where — and flags any call site that sends secrets or personal data to a model. Answers "how does AI touch our codebase?" Visibility only; it never affects your grade.
+- **AI Bill of Materials — Enterprise.** Export a standard CycloneDX ML-BOM of the AI in your codebase (every model and provider, with call-site evidence and a data-egress flag) for procurement and AI-governance requests. Works fully offline.
+- **AI-governance compliance evidence (opt-in).** Map your findings to **EU AI Act, ISO/IEC 42001, and NIST AI RMF** to produce audit evidence — off by default, enable only the frameworks your scope needs. Evidence toward each obligation, not a compliance certification.
+- **AI provider key detection.** Leaked AI-provider API keys (OpenAI, Anthropic, Hugging Face, Google, and more) are now caught as secrets — direct billing and data-egress exposure.
+- **Broader infrastructure & insecure-default coverage.** New checks for world-writable file permissions, over-permissive cloud IAM grants, world-open network ingress, and additional permissive-CORS patterns — each tuned to stay quiet on the safe, idiomatic forms.
+
+### Changed
+- **git-blame tells you when it can't work.** With finding age/owner enabled on a shallow checkout, PullGuard now warns you to deepen the checkout instead of silently leaving findings undated.
+
+### Fixed
+- **Sharper, better-labelled findings.** A class of non-credential issues (infrastructure, smart-contract, and query risks) that used to be reported as "hardcoded secret" now carry their correct category, so filtering and triage by type are accurate. Infrastructure files in nested `infra/`/`deployment/` folders are no longer skipped, and several false-positive sources were removed.
+
+### Supply chain
+- **The scanner image is now verifiable.** Every published image ships **SLSA build provenance and an SBOM** — your security team can confirm how it was built and what's inside before running it (`docker buildx imagetools inspect`).
+
+### Enterprise (self-hosted server)
+- **Get the server image your way.** Private-registry install is fully documented, with an air-gapped mirror flow and a **license-gated direct download** for environments that can't use a container registry — each image carries provenance and an SBOM.
+- **Repository-band licensing** and **dashboard auth hardening** — a sign-in audit trail, brute-force protection, stronger SAML validation, and file-mounted secrets.
+
+### Security
+- A broad internal security-hardening pass across the scanner, licensing, and self-hosted server. No change to normal scans.
+
+### Notes
+- **Anonymous free-tier usage signal (opt-out).** Free scans in GitHub Actions send an anonymous adoption count — no code, no findings, no personal data. Opt out with `telemetry: false` (or `PULLGUARD_TELEMETRY=off` / `DO_NOT_TRACK=1`). Paid, offline, and air-gapped scans never send anything.
+
+---
+
 ## [1.3.3] — 2026-06-24
 
 **Self-maintaining baselines, finding ownership, and editor integration.**
