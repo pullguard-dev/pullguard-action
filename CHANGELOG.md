@@ -12,6 +12,23 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.4.2] — 2026-07-09
+
+Signal-quality, honesty, and integration release. No breaking changes.
+
+### Added
+- **Embed PullGuard in your own dashboards (Enterprise).** The self-hosted server now exposes a read-only JSON API so you can surface repo grades, security posture, compliance status, and finding trends inside your own control-plane UI — read-only token + CORS allowlist; results only, never source.
+- **Cloudflare Wrangler hardening check.** Flags a Worker still exposed on its default `*.workers.dev` URL (bypassing your zone WAF / rate-limiting).
+- **Free-tier coverage note.** Free scans now state how many analyzers ran, so a free-tier "Security: A" is never mistaken for a full security pass.
+
+### Changed
+- **Security analyzers can no longer be switched off in configuration** — the integrity guarantee is now enforced.
+
+### Fixed
+- Parameterized SQL queries and plain shell `exec()` calls are no longer mis-flagged as SQL injection.
+- Native Check Runs are restored and now attach inline annotations to the Files-changed tab.
+- PR-comment / Check-Run polish (pluralization, trend-arrow direction, actionable-cost headline) and a corrected `.pullguardignore` + air-gapped setup doc.
+
 ## [1.4.1] — 2026-07-08
 
 **A verifiable supply chain.** Primarily a supply-chain release — no change to how your code is scanned.
