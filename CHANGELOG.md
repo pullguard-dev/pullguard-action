@@ -12,6 +12,19 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.4.1] — 2026-07-08
+
+**A verifiable supply chain.** Primarily a supply-chain release — no change to how your code is scanned.
+
+### Supply chain
+- **Published images are now cryptographically signed.** Both the scanner and the self-hosted server images carry a keyless **cosign / Sigstore** signature recorded in the public transparency log — so teams running signed-images-only admission policies can admit them, and anyone can verify authenticity independently of the registry with `cosign verify`. This builds on the SLSA build provenance and SBOM already shipped in 1.4.0.
+
+### Compliance
+- **AI-governance evidence now works on standard online scans**, not just air-gapped runs. The opt-in EU AI Act, ISO/IEC 42001, and NIST AI RMF mappings are delivered to every scan. Still opt-in per framework, and still evidence toward an obligation rather than a certification.
+
+### Enterprise (self-hosted server)
+- **License-gated direct download for the server image.** Enterprise customers can fetch the self-hosted server image over an air-gapped-friendly HTTPS endpoint authenticated with their existing license key, with an integrity checksum to verify the download.
+
 ## [1.4.0] — 2026-07-07
 
 **AI-era security & governance.** The biggest PullGuard release yet — see and govern everything AI touches in your codebase, with broader infrastructure coverage, sharper findings, and a verifiable supply chain. (This release also includes the security-hardening and Enterprise improvements previously previewed as 1.3.4, which was never published as its own image.)
