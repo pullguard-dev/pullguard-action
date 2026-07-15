@@ -12,6 +12,57 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.4.4] — 2026-07-15
+
+Reliability, precision, and hardening release. No breaking changes; no change to the scanner output or finding types. Verified against the OWASP Benchmark and a suite of deliberately-vulnerable applications with **no loss of true-positive coverage**.
+
+### Changed
+- **Baseline mode keeps pre-existing security-critical findings visible.** `scan --baseline` now surfaces pre-existing security criticals (marked as pre-existing) and still enforces them at the gate, instead of letting a baseline hide them from view. Everyday non-security noise stays collapsed.
+- **More reliable incremental scanning.** A `--cache` run now consistently reflects the current state of your repository, so a cached scan matches a fresh scan of the same tree.
+
+### Fixed
+- **Fewer false positives** across command-injection and secret detection, tuned to stay quiet on safe code patterns, with no reduction in true-positive coverage.
+
+### Security
+- **Self-hosted server hardening (Enterprise).** The customer-hosted server image adds security response headers, a non-root renderers-only runtime, request-size and repository operation caps, and store-aware readiness probes.
+
+---
+
+## [1.4.3] — 2026-07-10
+
+### Added
+- **Broader AI-agent & Go security coverage.** Data-flow analysis now follows untrusted input into MCP (Model Context Protocol) tool calls and Go's context-aware APIs (`exec.CommandContext`, the `db.*Context` query methods) and `ioutil` file APIs — closing detection gaps on modern agent and Go codebases (taint-gated; no new false positives).
+- **Self-hosted server — full-inventory visibility.** Repos behind a baseline now report their complete finding inventory to the server dashboard (previously such a repo could appear "clean"); each finding is tagged pre-existing vs. actionable. Scan history now records branch and commit.
+
+### Fixed
+- **AWS ARN false positive.** AWS Secrets Manager ARNs — resource references, not credential values — are no longer mis-flagged as hardcoded secrets in YAML/IaC config.
+
+---
+
+## [1.4.2] — 2026-07-09
+
+Signal-quality, honesty, and integration release. No breaking changes.
+
+### Added
+- **Self-hosted server (Enterprise): read-only query API + triage fields.** A JSON read API to surface PullGuard results inside your own dashboards / control-plane UI (results only, never source; read-only token + CORS allowlist). Each finding now also reports its triage status and each scan its license tier.
+- **Cloudflare Wrangler hardening check (Pro).** Flags a Worker that declares a custom route but does not disable its default `*.workers.dev` URL — a surface that bypasses zone-level WAF / rate-limiting. Brings the analyzer total to 45.
+- **Free-tier coverage disclosure.** Every free-tier scan now opens with a one-line banner stating how many analyzers ran (e.g. 14/45) and that category grades reflect only the checks that ran.
+
+### Changed
+- **Security analyzers can no longer be disabled via `.driftrc.yml`.** A config that sets `enabled: false` on a security-category analyzer is refused (the analyzer keeps running, with a warning) — the integrity guarantee is now enforced. Non-security analyzers are unaffected.
+
+### Fixed
+- **SQL-injection false positive on parameterized queries.** A bound-parameter query (`$1` / `%s` / knex `?` bindings) is no longer flagged as a tainted SQL flow when the SQL text is a pure literal and the untrusted value travels only in the values argument. Concatenated and template-interpolated queries still flag.
+
+---
+
+## [1.4.1] — 2026-07-08
+
+### Security
+- **Cosign-signed image.** The scanner image is now keyless-signed (Sigstore/cosign) and verifiable with `cosign verify`, alongside the existing SLSA provenance and SBOM. No engine or detection change from 1.4.0.
+
+---
+
 ## [1.4.0] — 2026-07-07
 
 **AI-era security & governance.** The biggest PullGuard release yet — see and govern everything AI touches in your codebase, with broader infrastructure coverage, sharper findings, and a verifiable supply chain. (This release also includes the security-hardening and Enterprise improvements previously previewed as 1.3.4, which was never published as its own image.)
