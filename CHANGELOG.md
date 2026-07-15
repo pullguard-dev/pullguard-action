@@ -26,8 +26,6 @@ Reliability, precision, and hardening release. No breaking changes; no change to
 ### Security
 - **Self-hosted server hardening (Enterprise).** The customer-hosted server image adds security response headers, a non-root renderers-only runtime, request-size and repository operation caps, and store-aware readiness probes.
 
----
-
 ## [1.4.3] — 2026-07-10
 
 ### Added
@@ -37,31 +35,35 @@ Reliability, precision, and hardening release. No breaking changes; no change to
 ### Fixed
 - **AWS ARN false positive.** AWS Secrets Manager ARNs — resource references, not credential values — are no longer mis-flagged as hardcoded secrets in YAML/IaC config.
 
----
-
 ## [1.4.2] — 2026-07-09
 
 Signal-quality, honesty, and integration release. No breaking changes.
 
 ### Added
-- **Self-hosted server (Enterprise): read-only query API + triage fields.** A JSON read API to surface PullGuard results inside your own dashboards / control-plane UI (results only, never source; read-only token + CORS allowlist). Each finding now also reports its triage status and each scan its license tier.
-- **Cloudflare Wrangler hardening check (Pro).** Flags a Worker that declares a custom route but does not disable its default `*.workers.dev` URL — a surface that bypasses zone-level WAF / rate-limiting. Brings the analyzer total to 45.
-- **Free-tier coverage disclosure.** Every free-tier scan now opens with a one-line banner stating how many analyzers ran (e.g. 14/45) and that category grades reflect only the checks that ran.
+- **Embed PullGuard in your own dashboards (Enterprise).** The self-hosted server now exposes a read-only JSON API so you can surface repo grades, security posture, compliance status, and finding trends inside your own control-plane UI — read-only token + CORS allowlist; results only, never source.
+- **Cloudflare Wrangler hardening check.** Flags a Worker still exposed on its default `*.workers.dev` URL (bypassing your zone WAF / rate-limiting).
+- **Free-tier coverage note.** Free scans now state how many analyzers ran, so a free-tier "Security: A" is never mistaken for a full security pass.
 
 ### Changed
-- **Security analyzers can no longer be disabled via `.driftrc.yml`.** A config that sets `enabled: false` on a security-category analyzer is refused (the analyzer keeps running, with a warning) — the integrity guarantee is now enforced. Non-security analyzers are unaffected.
+- **Security analyzers can no longer be switched off in configuration** — the integrity guarantee is now enforced.
 
 ### Fixed
-- **SQL-injection false positive on parameterized queries.** A bound-parameter query (`$1` / `%s` / knex `?` bindings) is no longer flagged as a tainted SQL flow when the SQL text is a pure literal and the untrusted value travels only in the values argument. Concatenated and template-interpolated queries still flag.
-
----
+- Parameterized SQL queries and plain shell `exec()` calls are no longer mis-flagged as SQL injection.
+- Native Check Runs are restored and now attach inline annotations to the Files-changed tab.
+- PR-comment / Check-Run polish (pluralization, trend-arrow direction, actionable-cost headline) and a corrected `.pullguardignore` + air-gapped setup doc.
 
 ## [1.4.1] — 2026-07-08
 
-### Security
-- **Cosign-signed image.** The scanner image is now keyless-signed (Sigstore/cosign) and verifiable with `cosign verify`, alongside the existing SLSA provenance and SBOM. No engine or detection change from 1.4.0.
+**A verifiable supply chain.** Primarily a supply-chain release — no change to how your code is scanned.
 
----
+### Supply chain
+- **Published images are now cryptographically signed.** Both the scanner and the self-hosted server images carry a keyless **cosign / Sigstore** signature recorded in the public transparency log — so teams running signed-images-only admission policies can admit them, and anyone can verify authenticity independently of the registry with `cosign verify`. This builds on the SLSA build provenance and SBOM already shipped in 1.4.0.
+
+### Compliance
+- **AI-governance evidence now works on standard online scans**, not just air-gapped runs. The opt-in EU AI Act, ISO/IEC 42001, and NIST AI RMF mappings are delivered to every scan. Still opt-in per framework, and still evidence toward an obligation rather than a certification.
+
+### Enterprise (self-hosted server)
+- **License-gated direct download for the server image.** Enterprise customers can fetch the self-hosted server image over an air-gapped-friendly HTTPS endpoint authenticated with their existing license key, with an integrity checksum to verify the download.
 
 ## [1.4.0] — 2026-07-07
 
