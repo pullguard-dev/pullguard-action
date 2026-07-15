@@ -12,6 +12,29 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.4.4] — 2026-07-15
+
+Reliability, precision, and hardening release. No breaking changes; no change to the scanner output or finding types. Verified against the OWASP Benchmark and a suite of deliberately-vulnerable applications with **no loss of true-positive coverage**.
+
+### Changed
+- **Baseline mode keeps pre-existing security-critical findings visible.** `scan --baseline` now surfaces pre-existing security criticals (marked as pre-existing) and still enforces them at the gate, instead of letting a baseline hide them from view. Everyday non-security noise stays collapsed.
+- **More reliable incremental scanning.** A `--cache` run now consistently reflects the current state of your repository, so a cached scan matches a fresh scan of the same tree.
+
+### Fixed
+- **Fewer false positives** across command-injection and secret detection, tuned to stay quiet on safe code patterns, with no reduction in true-positive coverage.
+
+### Security
+- **Self-hosted server hardening (Enterprise).** The customer-hosted server image adds security response headers, a non-root renderers-only runtime, request-size and repository operation caps, and store-aware readiness probes.
+
+## [1.4.3] — 2026-07-10
+
+### Added
+- **Broader AI-agent & Go security coverage.** Data-flow analysis now follows untrusted input into MCP (Model Context Protocol) tool calls and Go's context-aware APIs (`exec.CommandContext`, the `db.*Context` query methods) and `ioutil` file APIs — closing detection gaps on modern agent and Go codebases (taint-gated; no new false positives).
+- **Self-hosted server — full-inventory visibility.** Repos behind a baseline now report their complete finding inventory to the server dashboard (previously such a repo could appear "clean"); each finding is tagged pre-existing vs. actionable. Scan history now records branch and commit.
+
+### Fixed
+- **AWS ARN false positive.** AWS Secrets Manager ARNs — resource references, not credential values — are no longer mis-flagged as hardcoded secrets in YAML/IaC config.
+
 ## [1.4.2] — 2026-07-09
 
 Signal-quality, honesty, and integration release. No breaking changes.
