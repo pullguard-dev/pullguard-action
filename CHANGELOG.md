@@ -12,6 +12,20 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.4.5] — 2026-07-17
+
+Precision and signal-quality release, plus the self-hosted control plane. No breaking changes; no change to the scanner output or finding types. Verified against the OWASP Benchmark and a suite of deliberately-vulnerable applications with **no loss of true-positive coverage**.
+
+### Fixed
+- **Much less structural noise on large real-world codebases.** Parallel data-class / model boilerplate now folds into a single observation instead of one finding per file; the structural analyzers (architecture, complexity, large-file, naming) no longer judge test scaffolding as if it were shipped code; and component-library / styleguide files are no longer reported as unused. Security analysis is unchanged — security findings in test and styleguide code still surface.
+- **Sharper framework query-builder analysis.** Injection detection for Java CMS / ORM query builders is more precise on the safe parameter-bound idioms those frameworks use throughout, so correctly-written queries no longer produce findings.
+- The insecure-temp-file explanation is corrected (a shared-temp file is a readability/confidentiality issue, not a create-time race), and repository "bus factor" is no longer reported for squash-imported histories that have no real timeline.
+
+### Added
+- **Self-hosted control plane (Enterprise).** The customer-hosted server adds server-administered quality-gate policy — defined centrally and enforced in CI as a required status check — GitHub / GitHub Enterprise Server sign-in with team-based access control, and an AWS ECS (Fargate) deployment option alongside the existing Helm chart.
+
+---
+
 ## [1.4.4] — 2026-07-15
 
 Reliability, precision, and hardening release. No breaking changes; no change to the scanner output or finding types. Verified against the OWASP Benchmark and a suite of deliberately-vulnerable applications with **no loss of true-positive coverage**.
