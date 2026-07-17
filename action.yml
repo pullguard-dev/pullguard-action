@@ -1,6 +1,6 @@
 # WHY: GitHub Marketplace Action for one-line PullGuard setup.
 # Free tier (14 analyzers) works with no license key.
-# Pro (42 analyzers / 1 repo) / Team (all 44 / 10 repos) / Enterprise (unlimited, contact sales) unlocked via PULLGUARD_LICENSE_KEY secret.
+# Pro (43 analyzers / 1 repo) / Team (all 45 / 10 repos) / Enterprise (unlimited, contact sales) unlocked via PULLGUARD_LICENSE_KEY secret.
 #
 # Usage:
 #   - uses: pullguard-dev/pullguard-action@v1
@@ -11,7 +11,7 @@
 #       license-key: ${{ secrets.PULLGUARD_LICENSE_KEY }}
 
 name: 'PullGuard Code Scanner'
-description: 'Code quality, security & compliance on every PR. 44 analyzers, N-hop taint tracking, SOC 2 evidence, cost estimation.'
+description: 'Code quality, security & compliance on every PR. 45 analyzers, N-hop taint tracking, SOC 2 evidence, cost estimation.'
 author: 'PullGuard'
 
 branding:
@@ -20,7 +20,7 @@ branding:
 
 inputs:
   license-key:
-    description: 'PullGuard license key — unlocks Pro (42 of 44 analyzers; 1 repo), Team (all 44 incl. custom-rules + SOC 2; 10 repos), or Enterprise (all 44; unlimited repos + SSO + SLA — contact sales). Free tier (14 analyzers: core + dangerous-files + repo-hygiene) works without a key.'
+    description: 'PullGuard license key — unlocks Pro (43 of 45 analyzers; 1 repo), Team (all 45 incl. custom-rules + SOC 2; 10 repos), or Enterprise (all 45; unlimited repos + SSO + SLA — contact sales). Free tier (14 analyzers: core + dangerous-files + repo-hygiene) works without a key.'
     required: false
     default: ''
   fail-on-severity:
@@ -75,6 +75,10 @@ inputs:
     description: 'When true, annotate each finding with its git-blame "introduced" date, commit, and author, so the HTML report + dashboard artifacts show finding age and owner. Requires a deep checkout (actions/checkout fetch-depth: 0) for the history to be present; best-effort otherwise (findings just stay undated). Off by default — blame-per-finding adds scan latency. Default: false.'
     required: false
     default: 'false'
+  gate:
+    description: 'When true, enforce the Quality Gate your organisation administers on its self-hosted PullGuard server: the scan uploads results, the server evaluates the gate assigned to this repo, and this step exits non-zero when the gate does not pass — mark the check required in your branch-protection rules to make it a merge gate. Requires server-url + server-token. Fails CLOSED: if no verdict can be obtained (server unreachable / bad token), the step fails rather than silently passing. Independent of fail-on-severity, which always remains a floor a gate cannot weaken. Default: false.'
+    required: false
+    default: 'false'
 
 outputs:
   score:
@@ -94,6 +98,12 @@ runs:
       id: scan
       shell: bash
       env:
+        # WHY (26-hat RC review 2026-07-14): secrets are exported as step env so
+        # the `docker run` below can pass them with `-e VAR` (pass-through) rather
+        # than `-e VAR=<value>`, keeping the values OFF the docker argv (which is
+        # world-readable via /proc/<pid>/cmdline on the runner for the scan's
+        # duration). GITHUB_TOKEN is added here for the same reason.
+        GITHUB_TOKEN: ${{ github.token }}
         PULLGUARD_LICENSE_KEY: ${{ inputs.license-key }}
         PULLGUARD_FAIL_SEVERITY: ${{ inputs.fail-on-severity }}
         PULLGUARD_HOURLY_RATE: ${{ inputs.hourly-rate }}
@@ -108,6 +118,7 @@ runs:
         PULLGUARD_SERVER_TOKEN: ${{ inputs.server-token }}
         PULLGUARD_UPDATE_BASELINE: ${{ inputs.update-baseline }}
         PULLGUARD_BLAME: ${{ inputs.blame }}
+        PULLGUARD_GATE: ${{ inputs.gate }}
       # WHY: Pull and run the Docker image directly. The entrypoint handles
       # everything: scan, step summary, PR comment, severity threshold, outputs.
       # Using docker run instead of container: directive gives us control over
@@ -159,9 +170,13 @@ runs:
           cp "${GITHUB_EVENT_PATH}" "${{ github.workspace }}/.github-event.json"
         fi
 
+        # WHY (26-hat RC review 2026-07-14): secret-bearing vars use docker's
+        # pass-through form `-e VAR` (value read from the step env, NOT placed on
+        # the argv). Non-secret GitHub metadata stays inline — leaking public
+        # repo/sha/event on the argv is harmless.
         docker run --rm \
           -v "${{ github.workspace }}:/workspace" \
-          -e GITHUB_TOKEN="${{ github.token }}" \
+          -e GITHUB_TOKEN \
           -e GITHUB_REPOSITORY="${{ github.repository }}" \
           -e GITHUB_EVENT_NAME="${{ github.event_name }}" \
           -e GITHUB_EVENT_PATH="/workspace/.github-event.json" \
@@ -169,7 +184,7 @@ runs:
           -e GITHUB_STEP_SUMMARY="/workspace/.step-summary.md" \
           -e GITHUB_OUTPUT="/workspace/.github-output" \
           -e GITHUB_WORKSPACE="/workspace" \
-          -e PULLGUARD_LICENSE_KEY="${PULLGUARD_LICENSE_KEY}" \
+          -e PULLGUARD_LICENSE_KEY \
           -e PULLGUARD_FAIL_SEVERITY="${PULLGUARD_FAIL_SEVERITY}" \
           -e PULLGUARD_HOURLY_RATE="${PULLGUARD_HOURLY_RATE}" \
           -e PULLGUARD_CONFIG="${PULLGUARD_CONFIG}" \
@@ -179,9 +194,10 @@ runs:
           -e PULLGUARD_BASE_REF="${PULLGUARD_BASE_REF}" \
           -e PULLGUARD_COLLAPSE_PREEXISTING_SECURITY="${PULLGUARD_COLLAPSE_PREEXISTING_SECURITY}" \
           -e PULLGUARD_SERVER_URL="${PULLGUARD_SERVER_URL}" \
-          -e PULLGUARD_SERVER_TOKEN="${PULLGUARD_SERVER_TOKEN}" \
+          -e PULLGUARD_SERVER_TOKEN \
           -e PULLGUARD_UPDATE_BASELINE="${PULLGUARD_UPDATE_BASELINE}" \
           -e PULLGUARD_BLAME="${PULLGUARD_BLAME}" \
+          -e PULLGUARD_GATE="${PULLGUARD_GATE}" \
           "${IMAGE_REF}"
 
         # WHY: Copy outputs from container-written files to actual GitHub paths
