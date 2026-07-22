@@ -12,6 +12,27 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.4.6] — 2026-07-22
+
+Coverage and accuracy release for AI-era security, plus a second pass on analyzer signal quality. No breaking changes; no change to the scanner output or finding types. Verified with **no loss of true-positive coverage** (OWASP Benchmark results unchanged).
+
+### Added
+- **Broader AI/LLM coverage.** Prompt-injection and sensitive-data-to-model detection now recognises substantially more of the AI SDK surface teams actually use today — current client and streaming call styles, structured-response APIs, composed chains, agent frameworks, managed cloud model services, and the mainstream Java AI stack. Code that was previously invisible to these checks is now covered.
+- **More AI provider credentials recognised as secrets**, including service-account and administrative key formats and several additional model providers and gateways. These now also apply on the commit-history, container, and workflow scanning surfaces.
+- **Wider AI usage visibility.** The AI inventory and AI bill-of-materials recognise additional providers, routers, and OpenAI-compatible gateways — a project built on these no longer reports as having no AI usage.
+- **Detection of unsafe model loading** extended to more of the Python serialization ecosystem commonly used to distribute models.
+
+### Fixed
+- **Correct destination reporting for AI gateways.** Model calls routed through an OpenAI-compatible gateway are attributed to the actual provider rather than to OpenAI, so the AI bill-of-materials names the real data-egress destination.
+- **Compliance control accuracy.** AI-governance control titles now match the published standards exactly, the AI security mapping points at the correct framework subcategory, and additional finding types — including hallucinated/typosquatted dependencies and disabled transport security — now contribute compliance evidence. The compliance summary also reports the correct framework count when AI frameworks are enabled.
+- **Safety-filter opt-outs detected in more forms**, and agent iteration caps set to effectively-unlimited values are now flagged.
+- **Composite AI risk no longer over-escalates.** A composed AI-plus-security finding always carries the severity of its most severe underlying finding, so a finding your configuration has downgraded is never re-raised.
+- **Data-egress reporting is explicit when unavailable.** If the accelerated analysis path is unavailable, the AI usage panel states that data-egress risk was not assessed instead of showing zero.
+- **Less structural noise.** Architecture and complexity checks no longer judge end-to-end test scaffolding as shipped code, framework model boilerplate folds more completely, and the consolidated endpoint-risk finding no longer restates a single already-reported issue.
+
+### Changed
+- The AI bill-of-materials carries standard component identifiers, a document serial number, and a creation timestamp for better interoperability with BOM tooling.
+
 ## [1.4.5] — 2026-07-17
 
 Precision and signal-quality release, plus the self-hosted control plane. No breaking changes; no change to the scanner output or finding types. Verified against the OWASP Benchmark and a suite of deliberately-vulnerable applications with **no loss of true-positive coverage**.
