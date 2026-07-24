@@ -12,6 +12,33 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.5.0] — 2026-07-24
+
+AI-agent security release. Adds a dedicated analyzer for AI-agent and MCP configuration, a wave of new AI-agent security checks, and substantially wider prompt-injection coverage — alongside coverage, precision, and compliance improvements. No breaking changes; no change to the scanner output format. New finding types are additive (existing types unchanged). Verified with **no loss of true-positive coverage**.
+
+### Added
+- **New analyzer for AI-agent and MCP configuration** (Pro and above). PullGuard now inspects the files that drive coding agents and Model Context Protocol servers — agent instruction files, MCP server definitions, editor/agent rule files, and agent hook scripts — for hidden-instruction attacks, backdoored tool definitions, and instruction injection a human reviewer would not see.
+- **Detection of over-privileged agent tools** — a tool exposed to a model that passes its model-chosen argument straight into a shell, database, filesystem, or network call with no validation.
+- **Detection of disabled agent human-approval gates**, unbounded agent run budgets, and agent configuration "rug-pulls" (an agent config that changes after a trusted baseline).
+- **Detection of unauthenticated MCP servers** exposed on the network without an authentication layer, and of MCP tool descriptions crafted to inject instructions.
+- **Detection of retrieved-context injection (RAG)** — when a project ingests attacker-influenceable documents and feeds retrieved text into a model prompt without isolating it.
+- **Much wider prompt-injection coverage** — tracing now follows user input across function boundaries and recognises many more AI entry points (agent frameworks, retrieval/agent engines, and hand-rolled calls to model gateways) in more languages.
+- **AI supply-chain checks** — known-CVE fixtures for the AI stack and detection of typosquatted / hallucinated AI package names.
+- **AI usage visibility** now recognises hand-rolled model clients that call provider REST endpoints directly, so a backend that talks to a model without an official SDK no longer reports as having no AI usage.
+- **Per-finding security false-positive override.** A security finding a team marks as a false positive stays visible, reason-required, and reviewable by code owners — but no longer permanently blocks the pull request. It is recorded and audited, never silently dropped.
+
+### Fixed
+- **Reliable large-repository coverage.** Large monorepo scans now report exactly how much of the repository was analyzed and state clearly when a scan was truncated, instead of presenting a partial scan as complete. Committed configuration and credential files (such as `.env` and agent rule files) are now read and analyzed. Use `maxFilesRead` in `.driftrc.yml` to raise the analysis cap.
+- **Zero-day threat rules restored.** The bundled zero-day threat rules (Log4Shell, Text4Shell, SpEL, OGNL, and others) fire correctly again after a regression.
+- **SQL-injection precision.** The pattern-based SQL-injection check no longer fires on provably safe query construction (constant table names, validated integers, escaped or parameter-bound values), while still flagging genuine user-input concatenation.
+- **A broad set of false-positive fixes** across taint precision, injection sinks, redirect and email-header checks, timing-attack detection, ReDoS shape analysis, and vendored-code handling.
+- **Compliance mapping accuracy.** The new AI-agent security findings now contribute evidence to the EU AI Act, ISO/IEC 42001, and NIST AI RMF mappings.
+
+### Changed
+- Analyzer count is now 46 (Free 14 / Pro 44 / Enterprise 46).
+
+---
+
 ## [1.4.6] — 2026-07-22
 
 Coverage and accuracy release for AI-era security, plus a second pass on analyzer signal quality. No breaking changes; no change to the scanner output or finding types. Verified with **no loss of true-positive coverage** (OWASP Benchmark results unchanged).
