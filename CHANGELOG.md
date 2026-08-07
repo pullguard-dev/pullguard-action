@@ -12,6 +12,29 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.5.1] — 2026-08-07
+
+Precision and triage-usability release. No breaking changes; new finding types and configuration are additive. Verified with **no loss of true-positive coverage**.
+
+### Added
+- **Dev-tooling tiering (opt-in).** Declare build/preview/test-container paths in `.driftrc.yml` (`devTooling.paths`) and findings there are down-ranked exactly one severity step — annotated with their original severity, never dropped from any surface. Committed credentials and AI-agent attack findings are exempt and keep full severity. Off by default; nothing is inferred from path names.
+- **Self-hosted server: triage without an identity provider (opt-in)** via `PULLGUARD_SERVER_OPEN_TRIAGE=true`. Decisions remain audit-logged (recorded as unauthenticated); the server refuses to start if the flag is combined with SSO, where role-based access governs instead.
+- **Self-hosted server: dashboards link the triage page**, so triage is reachable from every dashboard.
+- **Detection of backdoored MCP tool commands** in committed agent configuration.
+
+### Changed
+- **Light is the default theme** for reports and dashboards (dark remains one click away and persisted).
+- **Polynomial ReDoS is now reported at `minor`** with an explicit O(n²) description; catastrophic-backtracking shapes remain `major`. Nothing is dropped.
+- **Dashboards:** the findings table is sortable, truncated lists are expandable, and the first sort click orders worst-first.
+
+### Fixed
+- **Dependency CVEs are evaluated against the lockfile-resolved version**, not the declared range floor — removing false criticals on already-patched dependencies and catching a vulnerable resolution under a clean floor.
+- **`dangerous_file_tracked` no longer fires on files git ignores** when scanning a repository subdirectory.
+- **Security-check precision**, from a customer evaluation of v1.5.0: framework query-builder injection recall across all chain verbs with per-argument safe-idiom analysis; structured-comparator builders (JPA Criteria, jOOQ, QueryDSL) no longer flagged on bound parameters; bound-parameter `createQuery` calls no longer flagged; browser-side fetches no longer misreported as SSRF; password-confirmation compares no longer flagged as timing attacks; locale/i18n files no longer flagged for secrets; context-gated `insecure_crypto`; bundler-output scoping; and scan determinism pinned at the licensed tier.
+- **Self-hosted server: the triage page shows the assigned quality-gate verdict** (named, with the same condition details CI receives); without an assigned gate the banner is labelled "Critical gate".
+- **Quality gates: clearer verdicts on uploads without a baseline** — the fail-closed behaviour is unchanged, but a failing `new_*` condition now says every finding counts as new and recommends `total_*` metrics for full-inventory uploads.
+- **Self-hosted server: pages show the real server version in the footer and serve a favicon.**
+
 ## [1.5.0] — 2026-07-24
 
 AI-agent security release. Adds a dedicated analyzer for AI-agent and MCP configuration, a wave of new AI-agent security checks, and substantially wider prompt-injection coverage — alongside coverage, precision, and compliance improvements. No breaking changes; no change to the scanner output format. New finding types are additive (existing types unchanged). Verified with **no loss of true-positive coverage**.
