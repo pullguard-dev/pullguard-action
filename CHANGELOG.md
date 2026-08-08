@@ -12,6 +12,20 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.5.2] — 2026-08-08
+
+Hardening and AI-threat response release. No breaking changes; new detections are additive and reuse existing finding types. Verified with **no loss of true-positive coverage**.
+
+### Added
+- **Detection of malicious agent hooks and auto-run editor tasks.** PullGuard now inspects hook commands committed in agent settings files, and editor tasks configured to run automatically on folder open — the file surfaces weaponized by the August 2026 self-propagating npm-worm campaign to execute credential-stealing payloads the moment a repository is opened, with no install step and no script file to review. Flags download-and-execute, credential-read, and encoded or inline script payloads; legitimate hooks and ordinary build tasks are unaffected.
+- **Detection of invisible Unicode Tag-block characters** in agent instruction files — the "invisible instruction" vector recently found in malicious published agent skills.
+- **Dependency CVEs are now resolved against `yarn.lock` and `pnpm-lock.yaml`** (all current lockfile versions), extending the lockfile-accuracy fix beyond npm: no more false criticals on already-patched dependencies, and vulnerable resolutions under a clean version range are caught — across the whole JS package-manager ecosystem.
+- **GitHub Security tab severity ranking.** SARIF output now carries the `security-severity` property on security rules, so findings rank Critical/High/Medium/Low in GitHub code scanning instead of landing in generic level buckets.
+
+### Fixed
+- **Git-backed analysis no longer degrades silently in containers.** On a mounted checkout owned by a different user, git refused to run and history-based analyzers (bus factor, secret history, blame, source links) quietly produced nothing. The container now marks the scanned checkout as a git safe.directory — scoped to that exact path, never a wildcard — and any remaining git refusal is reported loudly with the fix instead of vanishing.
+- **Self-hosted server SSO docs corrected to the actual (stricter) behaviour:** an authenticated user with no mapped role is denied by default in every configuration; granting a fallback role always requires an explicit opt-in.
+
 ## [1.5.1] — 2026-08-07
 
 Precision and triage-usability release. No breaking changes; new finding types and configuration are additive. Verified with **no loss of true-positive coverage**.
