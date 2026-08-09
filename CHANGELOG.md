@@ -12,6 +12,17 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.5.3] — 2026-08-09
+
+AI-threat catch-up release. No breaking changes; new detections are additive and reuse existing finding types. Verified with **no loss of true-positive coverage**.
+
+### Added
+- **Comment-injection detection in source code.** PullGuard now inspects source-code comments — the context AI coding assistants read — for two attack classes seen in the wild in 2026: invisible Unicode control characters hidden in comments (the Trojan Source class, and the vector used to smuggle instructions past human review), and comment blocks addressed to AI assistants carrying override, concealment, or exfiltration directives (the vector used to steer coding assistants into leaking repository tokens). Detection is comment-aware — string literals containing emoji, URLs, or international text are never flagged — and ordinary comments that merely mention AI tools, or quote an attack phrase while describing it, stay silent. Calibrated against two dozen real open-source repositories, including AI frameworks, agent applications, and MCP servers, before release.
+- **OWASP Top 10 for Agentic Applications (ASI) categorization.** Agentic-risk findings — prompt injection, agent instruction and tool poisoning, MCP configuration risks, over-privileged agent tools, unbounded agent loops, and related detections — now carry their OWASP ASI category in SARIF output, both as a per-finding property and as rule tags. They can be filtered and reported against the published agentic-AI risk taxonomy in GitHub code scanning and other SARIF consumers. Every category identifier and title is verified against the published OWASP list; findings outside the taxonomy carry no tag.
+
+### Fixed
+- **Report source links no longer degrade on ownership-mismatched mounts.** When a repository is mounted with different file ownership than the container user, the entrypoint's own git operations — which resolve the scan reference used for report source links — could still be refused, producing a spurious "dubious ownership" warning after an otherwise successful scan. Those operations now run with the same safe-directory configuration as the scan itself, scoped to the exact path and never a wildcard. Any `GIT_CONFIG_*` environment entries you provide are always preserved.
+
 ## [1.5.2] — 2026-08-08
 
 Hardening and AI-threat response release. No breaking changes; new detections are additive and reuse existing finding types. Verified with **no loss of true-positive coverage**.
