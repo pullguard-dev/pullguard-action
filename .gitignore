@@ -1,0 +1,26 @@
+# WHY this file is COMMITTED (2026-08-09): it existed only as an untracked local
+# file, so its protection applied to exactly one machine. On any other clone — or
+# after a fresh checkout — a `git add -A` would have staged operator scratch and
+# local scan state into this PUBLIC repository. Committing it makes the guard real
+# for everyone. (Same failure class as the 2026-07-08 monorepo near-miss.)
+
+# ADR-0044: scratch space for commit messages + PR bodies authored as files.
+# Files in these directories are ignored; the .gitkeep files document the pattern.
+/.commit-messages/*
+!/.commit-messages/.gitkeep
+/.pr-bodies/*
+!/.pr-bodies/.gitkeep
+
+# WHY: PullGuard's own local scan state, written when someone scans this repo from
+# their workstation. It is machine-local scratch here — this repo runs no scan
+# workflow, so there is no cross-run first-seen history to preserve — and a
+# committed scorecard of our own public repo is not something to publish. Mirrors
+# the monorepo's .gitignore treatment of the same files. (A repo that DOES scan
+# itself in CI commits these deliberately so first-seen tracking survives; that is
+# a per-repo decision, and the answer here is no.)
+.drift-cache.json
+.drift-trend.json
+.drift-signatures.json
+.drift-baseline.json
+.drift-history.json
+.drift-scan-details.json
