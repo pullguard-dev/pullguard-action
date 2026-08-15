@@ -12,6 +12,35 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.5.4] — 2026-08-14
+
+Precision, anti-evasion, and provenance release. No breaking changes; new configuration is additive and opt-in. Verified with **no loss of true-positive coverage** (labeled benchmark byte-identical per category, vulnerable-app sweeps per-finding verdicted, clean-OSS false-positive bed unchanged).
+
+### Added
+- **AI-authorship provenance now records three evidence layers** (opt-in via `aiProvenance.enabled`): marker strings in source comments; the same markers in git commit trailers — where AI coding tools actually write their disclosure by default; and C2PA / Content Credentials provenance manifests on committed image assets, reported as present (unverified — signature validation is on the roadmap). Evidence for EU AI Act Article 50 transparency, never authorship proof; absence of a mark proves nothing.
+- **Vendored findings can stay visible** (opt-in `vendored.visibility: info`): findings in vendored/bundled third-party code are kept at informational severity — annotated with their original severity, excluded from the grade — instead of the default drop. Committed credentials keep full severity either way.
+- **Deterministic dependency-freshness**: the aggregate is no longer skewed by transient registry failures, and an opt-in offline mode makes identical-input scans byte-identical with no network calls.
+- Dev-tooling tiering accepts any-depth path patterns (`**/provision`).
+
+### Fixed — scanner integrity (anti-evasion)
+- **A pull request can no longer remove its own files from security scanning** by editing scan-exclusion configuration in the same diff.
+- **Renaming an agent/MCP configuration file no longer evades detection** — agent-config rules key on the file's content shape, not its name.
+- **A padded line can no longer suppress security findings** — a single over-long line used to classify the whole file as a minified bundle and hide findings on ordinary lines elsewhere in the file. Genuine minified bundles remain excluded.
+- The Check Run integration's authorization was hardened.
+
+### Fixed — detection accuracy
+- Framework query-builder and prose false positives removed across chained verbs, structured predicate builders, and validation-message text, with the high-recall pattern retained (its unique true-positive contribution was measured before any change).
+- `timing_attack` no longer fires on password-confirmation compares regardless of how the fields are named — a compare whose operands are both the current request's own input is not a timing oracle. Genuine oracles (stored-secret, HMAC, basic-auth compares) are pinned as permanent must-fire tests.
+- `insecure_crypto` down-ranks MD5 used for content digests even when the evidence lives in the method signature; password and signing-key uses keep full severity.
+- Vendored recognition covers `_resource` asset trees; `.env` findings no longer report CDN/content-hash paths as credentials; duplication findings fold framework boilerplate; findings name the method actually matched instead of a sibling method absent from the line.
+
+### Fixed — detection coverage
+- **Fetched remote content written into the DOM is now detected as XSS**, including the real-world shape: fetch in one method, a DOMParser round-trip and `innerHTML` write in another. Server-side proxying of upstream responses is deliberately not flagged.
+- `innerHTML` assignments of HTML built by string concatenation are flagged exactly like their template-literal equivalents.
+- RAG prompt-isolation detection follows retrieved content through helper functions that assemble the prompt, across ingestion sources.
+- **Sanitizers now clear only the vulnerability classes they actually mitigate**, everywhere in the analysis — an HTML encoder no longer hides a SQL-injection or request-forgery flow, whether the sanitizer appears inline, in an earlier assignment, or across function boundaries.
+- Multi-line `return` statements are now analyzed across function boundaries in every supported language — previously a silent cross-function blind spot.
+
 ## [1.5.3] — 2026-08-09
 
 AI-threat catch-up release. No breaking changes; new detections are additive and reuse existing finding types. Verified with **no loss of true-positive coverage**.
