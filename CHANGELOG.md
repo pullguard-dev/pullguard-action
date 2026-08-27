@@ -12,6 +12,32 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.5.5] — 2026-08-27
+
+Hardening release from two independent adversarial review passes over v1.5.4 plus a cross-release regression hunt. No breaking changes. Verified with **no loss of true-positive coverage** (labeled benchmark byte-identical per category; the vulnerable-app sweep's single delta is one hand-verified true positive gained; the clean-OSS false-positive bed was re-baselined with every finding individually verdicted).
+
+### Security — scan-integrity hardening
+- **A pull request can no longer weaken its own scan through configuration changes in the diff**: in-diff reductions to scan depth or file caps, dev-tooling severity demotions, custom sanitizer declarations, and offline-database redirects are all neutralized (extending the protection that already covered exclude patterns), and every neutralization is stated in the scan-integrity banner. Depth-limited scans are marked partial instead of presenting as complete.
+- Generated dashboards and PR comments can no longer be attacked through committed history files or echoed configuration values — all such inputs are strictly validated and escaped at render.
+- Repo-bound license keys are enforced outside GitHub Actions as well; repository comparisons are case-insensitive everywhere; Team-plan repository registrations are validated to a plausible `owner/repo` shape before being stored.
+- `/pullguard ignore` refuses to act on fork pull requests.
+
+### Detection — recall restored and widened
+- Timing-attack detection no longer goes quiet where a stored secret is compared against request input in modern arrow-function handlers, after a nearby re-assignment, or through a field write — while the password-confirmation shapes that are provably not an oracle stay suppressed, now including destructured request reads.
+- The `innerHTML +=` append idiom is detected as an XSS sink everywhere; HTML string literals containing quoted attributes are no longer missed in concatenation; `outerHTML` and `insertAdjacentHTML` gained the same coverage, including across function boundaries.
+- Raw-SQL predicate injection is detected through wrapper calls (`where(not(condition(...)))`-style composition), and a literal-carrying wrapper can no longer resurrect a previously fixed query-builder false positive.
+- A sanitized value concatenated or overwritten with fresh user input is treated as unsafe again; multi-line shell invocations carrying request input are detected again; Java SQL injection through inline-chained JDBC calls is detected again; `.mts`/`.cts` TypeScript modules are fully analyzed.
+- Cursor Project Rules files (`.cursor/rules/*.mdc`) and current Copilot / Claude Code instruction formats are now covered by the agent-instruction rules; MCP configuration files are recognized by content, so renaming one no longer evades change tracking.
+
+### Added
+- **`PULLGUARD_OFFLINE=true`** — a single switch for air-gapped operation: signed embedded rule catalogs, local-only CVE lookups (marked unverified when absent), no registry sweep, and no report leaves the runner. The privacy and sovereignty documentation now enumerates every external call.
+- **CVSS v4.0 support** in CVE severity classification using the official FIRST scoring algorithm.
+
+### Fixed — accuracy
+- SOC 2 evidence cites the correct AICPA criteria (change management under CC8.1; fraud-risk under CC3.3) and PCI DSS 4.0 known-vulnerability evidence cites Requirement 6.3 — with an automated gate verifying every shipped control id against the published standards so numbering drift cannot recur.
+- Routes protected by `router.use(passport.authenticate(...))` are no longer flagged as missing authentication.
+- The documented `thresholds:` configuration block now steers the analyzers; dependency-freshness no longer recommends date-versioned artifacts or pre-releases as upgrade targets; large-repository scans no longer degrade in throughput past 1,000 files.
+
 ## [1.5.4] — 2026-08-14
 
 Precision, anti-evasion, and provenance release. No breaking changes; new configuration is additive and opt-in. Verified with **no loss of true-positive coverage** (labeled benchmark byte-identical per category, vulnerable-app sweeps per-finding verdicted, clean-OSS false-positive bed unchanged).
