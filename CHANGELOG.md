@@ -12,6 +12,45 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.5.6] — 2026-08-28
+
+Patch wave driven by an external customer validation of v1.5.5 (every finding
+reproduced against the released image before being fixed).
+
+### Fixed — detection
+- Command injection: a request value passed **directly** as the argument of a
+  Node shell call (`execSync(req.query.cmd)`, `exec(req.body.command, …)`,
+  `spawn(req.params.bin, …)` and the `child_process.`-prefixed forms) is now
+  reported at CRITICAL, matching the already-detected "bind to a local first"
+  and string-concatenation spellings of the same vulnerability. Previously the
+  shortest spelling was silent. Scoped to genuine request-input accessors and
+  the shell verbs only — regex `.exec(...)`, logger/database `.exec…` methods,
+  and server-configuration reads through the request object do not fire.
+- Timing-attack detection now follows where a value CAME FROM rather than what
+  the variable is called: a value read from a secret store or a password/token
+  getter compared against request input is reported even when the variable
+  has a neutral name (`stored`, `expected`), and a call receiver such as
+  `user.getPassword().equals(request.getParameter(…))` is reported too — a
+  class of genuine timing oracles that a rename could previously hide. Two
+  false-positive shapes are closed at the same time: a "confirm your password"
+  compare read through a framework request object (a `WebRequest` field, with
+  the parameter names in constants) and a confirm pair of method parameters
+  (`newPassword1` / `newPassword2`) no longer fire. A non-secret value compared
+  against request input, or a secret compared against a public literal, stays
+  silent.
+- Timing-attack detection now behaves identically on files with Windows
+  (CRLF) line endings. Previously the "both values are the request's own
+  input" suppression never applied to CRLF files, so confirm-your-password
+  compares in Windows-checked-out Java code were reported as timing oracles.
+- Cross-method DOM XSS is now detected when the fetched content reaches the
+  DOM-writing method through a promise `.then()` callback
+  (`this.get(url).then((body) => { el.innerHTML = body; })`, and the
+  three-method fetch → link → DOMParser/innerHTML module shape). Previously
+  only the `await`/assignment spelling of the same chain was reported — the
+  `.then()` spelling was silent. The existing precision rules carry over: a
+  fetched body handed to `res.send` is still treated as proxy plumbing, and a
+  parameterless callback binds nothing.
+
 ## [1.5.5] — 2026-08-27
 
 Hardening release from two independent adversarial review passes over v1.5.4 plus a cross-release regression hunt. No breaking changes. Verified with **no loss of true-positive coverage** (labeled benchmark byte-identical per category; the vulnerable-app sweep's single delta is one hand-verified true positive gained; the clean-OSS false-positive bed was re-baselined with every finding individually verdicted).
