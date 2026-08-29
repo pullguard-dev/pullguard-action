@@ -12,6 +12,55 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.5.7] — 2026-08-29
+
+Follow-up to the v1.5.6 customer validation plus a proactive precision/recall sweep of the
+scanner against its own codebase. No breaking changes. Verified with **no loss of
+true-positive coverage** (labeled benchmark byte-identical per category; vulnerable-app
+sweep byte-stable per finding type; clean-OSS false-positive beds identical per finding).
+
+### Fixed — detection
+- DOM XSS: appending to an element's **own** markup (`el.innerHTML = el.innerHTML +
+  '<span>…</span>'`) is no longer reported — a v1.5.6 regression in the same rule. All
+  spellings of the operation agree; and a self-append that **also** concatenates a request
+  or record value (`el.innerHTML = el.innerHTML + '<td>' + user['first_name']`) is reported
+  again in the expanded form (the first fix had gone silent there). Copying one element's
+  HTML into another stays silent; a text read re-rendered as markup now fires.
+- Timing-attack detection: a "confirm your password" compare is suppressed when the
+  request handle is **inherited** from a base class rather than declared in the file — the
+  production shape behind the original report. A stored secret compared against a request
+  DTO field of the same name (`this.apiKey.equals(request.apiKey)`) still fires.
+- Findings from the language-specific rule set are anchored at the **actual match**
+  rather than the first occurrence of the matched text in the file (reports, SARIF
+  click-to-source, PR annotations).
+- Python `builtins.exec(…)` / `__builtins__.eval(…)` and JavaScript indirect eval
+  (`window.eval`, `globalThis.eval`, `self.eval`) are reported as the builtin they are;
+  other receivers (`session.exec`, `parser.eval`) stay silent.
+- Clean-code false positives removed: hand-rolled CSRF token checks (`x-csrf-token` +
+  compare) are recognised as CSRF protection; a handler that verifies its own bearer / API
+  token (`checkIngestToken(…)`, `requireAdminWrite(req, …)`) is recognised as guarded, and
+  a comment block between a route and its guard no longer hides the guard (while a
+  section-header comment between two routes still keeps them separate); a slash that opens a
+  string literal is no longer read as a regex in JavaScript (PHP/Python string regexes are
+  unaffected); a regex `.exec(…)` in a callee is no longer a cross-file command-injection
+  sink; a removed export is reported only when an importer actually references it;
+  identifiers inside comments never count toward naming-convention drift; SQLModel
+  `session.exec(…)`, Perl POD/backtick-in-comment, `JSON.parse(body)` on a response body,
+  Perl `t/` test trees (Perl files only), and value-object `equals(Object)` overrides no
+  longer fire.
+
+### Changed — release gates
+- Every corpus fixture is re-verdicted under semantics-preserving rewrites (line endings,
+  compound assignment, a request handle declared ⇄ inherited, an inline source hoisted into
+  a local, comment insertion, every code line echoed inside a comment) and must produce the
+  identical finding types and severities.
+- The clean-code false-positive gate and the vulnerable-app sweep refuse a scan that ran
+  below the Enterprise tier, crashed, or in which every baseline finding vanished at once.
+
+### Fixed — self-hosted server image
+- Base image pinned by digest; a `HEALTHCHECK` against `/healthz` that honours `PORT` and
+  `PULLGUARD_SERVER_HOST`.
+
 ## [1.5.6] — 2026-08-28
 
 Patch wave driven by an external customer validation of v1.5.5 (every finding
