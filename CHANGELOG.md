@@ -12,6 +12,326 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.5.8] — 2026-09-04
+
+> Ships with **server 0.4.0** — see the *Server (Enterprise)* section at the end of this entry; it carries a breaking upgrade note.
+
+### Added — coding agents can drive PullGuard (MCP)
+- **`pullguard mcp`** serves a scan to any MCP-capable coding agent (Claude Code,
+  Cursor, and others) over stdio, with zero extra dependencies: scan summary, filtered
+  and paged finding lists, full finding detail with the taint path and remediation, and
+  rule explanations. **`pullguard mcp --server <url> --token <read-token>`** offers the
+  same surface backed by your self-hosted server, plus repo listing, gate status, triage
+  decisions and over-SLA findings — a scoped token bounds what an engineer's agent can
+  see. A **Coding Agents** documentation page carries the `claude mcp add` snippet.
+- **Three tiers of agent capability, safe by default.** Read tools are always on. Safe
+  actions (run a local scan, verify a fix, export) are on by default. Actions that could
+  change a merge verdict or a deployment — triage decisions, accepting risk, hiding a
+  repo, gate policy, SLA policy, tokens — are **off by default and not listed until
+  enabled** (`mcp.dangerousTools: true` locally; a per-token *agent write* flag on the
+  server). When enabled, every such call must be explicitly confirmed by the agent and is
+  audit-logged as an agent actor. A security finding still needs a reason to be
+  dismissed, stays visible, and is never removed from gates, whoever asks.
+
+### Added — cross-file taint follows arguments into imported functions
+- Cross-file analysis previously followed tainted data only when an imported function
+  **returned** it. It now also follows request data **passed as an argument** into an
+  imported function whose own parameter reaches a dangerous sink — the more common shape
+  in real services — including when the request expression is written inline in the
+  call. Module-scope code is analysed too. Every such finding carries a structured
+  cross-file taint path.
+
+### Added — agent and AI supply-chain threat detection
+- **Unattended command execution** (`unattended_command_execution`): a committed
+  devcontainer lifecycle hook, git-hook manager (Husky, lefthook, pre-commit) or npm
+  install script that downloads-and-runs or otherwise executes without the developer
+  asking. A plain build script in a hook is silent.
+- **Lethal trifecta** (`agent_lethal_trifecta`): one agent configuration that grants
+  private-data access, untrusted-content exposure **and** an external send channel. Any
+  two of the three is silent.
+- **Agent workspace symlink escape** (`agent_workspace_symlink_escape`): a committed
+  symlink pointing outside the project in a repo that also grants its agent broad write
+  or terminal scope. The link is never followed.
+- **Unsafe model deserialization** (`unsafe_model_deserialization`): `torch.load`,
+  `joblib.load`, Keras custom-object loads and `torch.hub.load` fire when the same
+  file also fetches or unpacks the artifact it loads.
+- MCP configuration drift now also notices a swapped tool **parameter** description, and
+  each AI provider row in the AI-BOM lists the CVEs the dependency scan already found
+  for that provider's packages (display only).
+- **Two new Tier-2 zero-day rules** delivered through the signed rules channel, each
+  tied to a citable advisory: a LangGraph checkpoint SQL-injection idiom
+  (CVE-2025-67644) and a CrewAI code-interpreter idiom (CVE-2026-2275).
+
+### Added — detection coverage
+- **Four OWASP Benchmark categories that previously scored zero now detect:** weak
+  random numbers used for security purposes (`weak_rng_crypto`), cookies set without
+  `Secure`/`HttpOnly` (`insecure_cookie`), LDAP injection (`ldap_injection`) and
+  XPath injection (`xpath_injection`). Overall benchmark Youden index 0.21 → 0.39 with
+  the other seven categories unchanged; every changed case is verdicted in the
+  committed baseline.
+- **Performance findings now report on every parsed file.** Memory-leak patterns,
+  synchronous I/O inside async code and unbounded pagination previously fired only on
+  files the parser could not read; expect these to appear on projects where they were
+  silent before. Ephemeral event emitters and framework-managed pagination are excluded.
+
+### Added — reports and dashboards
+- A **grade and score legend** (bands and category weights) on the HTML report, the CI
+  step summary and the PR-comment footer, with a *How grading works* docs anchor.
+- The HTML report's **SOC 2 evidence grid filters the findings table in place**; the
+  markdown grids name the top `file:line` per control.
+- Every finding on the report carries its **fingerprint, a copyable `.pullguardignore`
+  entry and, where the scanner would honour it, the `/pullguard ignore` command**.
+- Dashboard findings tables **sort on every column** (keyboard-operable, persisted), and
+  both dashboards and the report offer **CSV/JSON export of the current filtered view**
+  and a prefilled new-issue link per finding — all client-side, nothing uploaded.
+- Each occurrence of a folded security finding gets **its own SARIF result and Check Run
+  annotation** with its own fingerprint, so each has its own alert lifecycle; taint
+  paths render in the HTML report as linked source→sink hops; the Check Run summary
+  discloses when GitHub's annotation display ceiling hides annotations.
+- **26 security finding types gained a CWE** (every agent-era rule among them) or an
+  explicit, reasoned omission.
+
+### Added — optional analyzer isolation
+- `analyzerIsolation: worker` in `.driftrc.yml` runs analyzers in a separate thread
+  with a real wall-clock limit, so a pathological input can be stopped without taking
+  the scan down. **Off by default** (`inline`) and, when on, produces byte-identical
+  findings to the inline path.
+
+### Added — every dependency CVE now says whether your code actually uses it
+- **Reachability on every CVE finding.** Each `known_cve` finding now carries a
+  verdict — `reached` (a function the advisory names as affected is called),
+  `imported` (production, or test code only), `declared` (in a manifest, never
+  imported), `transitive` (arrived indirectly, never imported), or `unknown` — with
+  the file and line that proves it. It appears on the PR-comment row, in the JSON
+  report (`scaReachability`) and in SARIF, across all five ecosystems (npm, PyPI,
+  Go, Maven/Gradle, RubyGems). **Nothing is hidden**: an unreached vulnerability is
+  still reported in full.
+- **Symbol-level accuracy where the advisory supports it.** For Go, the affected
+  function names published with the advisory are used directly. For a curated set of
+  other advisories whose published text names the vulnerable function, the same
+  applies. Every curated entry cites the advisory it was read from.
+- **Optional severity tiering (off by default).** Set `dependencies.reachabilityTiering: true`
+  in `.driftrc.yml` and unreached vulnerabilities are shown one severity band lower,
+  annotated with their original severity and the reason — the one place reachability
+  affects the merge gate. An `unknown` verdict never lowers a severity, a
+  vulnerability on the CISA KEV catalog is never lowered, and a pull request cannot
+  switch the setting on for itself.
+
+### Changed — React and front-end code reads like front-end code
+- **A React component is now measured as a component, not as a function.** JSX markup
+  no longer counts toward a function's length, and JSX conditional rendering
+  (`{cond && <X/>}`, `{a ? <X/> : <Y/>}`) no longer counts as branching — it is
+  markup, not control flow. Logic inside a JSX callback still counts, and a guard
+  clause that happens to render is still a branch.
+- **New finding: `large_component`.** A component that is large by markup volume is
+  reported with the numbers a front-end lead can act on — JSX elements, tree depth,
+  hooks and event handlers — at minor severity, rising to moderate when the component
+  holds too many concerns. A component whose branches live outside the markup is still
+  reported as a monolithic function, unchanged.
+- **Duplication and naming follow the same framing.** Repeated markup scaffolding folds
+  into one observation (a copied render tree of 25+ lines, and any duplicated logic,
+  still report normally), and PascalCase components + camelCase hooks + SCREAMING_SNAKE
+  constants count as one convention rather than three competing ones.
+- **A large screen file** is reported at minor with its markup share stated instead of
+  being treated like a long service class.
+- **Class-level triage suggestion.** When one non-security finding type dominates one
+  path family, the report suggests the shape of a single class-level accepted-risk
+  record instead of asking for 100+ individual dismissals. Text only — nothing is
+  applied.
+- Nothing is suppressed by any of the above: every finding stays in the JSON and SARIF
+  output. Non-React code is unchanged.
+
+### Added — triage, config and agent workflow
+- **Time-boxed suppressions.** `/pullguard ignore <fingerprint> for:30d <reason>` on a
+  PR, or `pullguard ignore <fingerprint> --for 30` locally, adds a suppression that
+  reverts on its own. Every report now carries a **Suppression state** section naming
+  each entry that has lapsed (*"ignore expired on &lt;date&gt;"*), each entry that no
+  longer matches anything and is safe to prune, and how many are still open-ended.
+  `pullguard ignore --list` prints the same picture from the CLI.
+- **Acknowledgements re-alert when the code changes.** An `acknowledged` finding stays
+  visible and marked reviewed; if the code it was reviewed against changes, the reviewed
+  badge is dropped for that scan and the finding says *"code changed since
+  acknowledgement — re-review"*. Existing acknowledgements are unaffected until their
+  code changes.
+- **`pullguard init --full`** writes a fully-commented `.driftrc.yml` containing every
+  supported option, all commented out — a complete, copy-pasteable reference generated
+  from the scanner's own schema. Scans also print a one-line summary of which
+  **non-default** options were applied.
+- **SLA visibility.** The `sla` age-budget policy now reports itself: *"N findings
+  exceed your SLA policy"* on the PR comment, the CI Step Summary and the CLI report,
+  and the policy is documented at **Configuration → SLA &amp; aging**.
+- **Ownership routing** (opt-in). `ownership.groupBy: owner` adds a *Findings by owner*
+  table to the CI Step Summary, resolved from git blame with a `CODEOWNERS` fallback.
+  @-mentions are a separate opt-in and default off.
+- **`pullguard explain <fingerprint>`** prints a machine-readable **fix contract** for
+  one finding — what the rule looks for, where the flow starts and ends, the invariant a
+  fix must satisfy, and the reference test fixtures the rule is held to. Built for
+  coding agents, and it never discloses the detection pattern itself.
+- **`pullguard verify-fix <fingerprint>`** re-scans and reports whether a finding is
+  fixed or still firing (exit 0 / 1 / 2). It always re-scans the whole project and
+  states that scope, and it refuses to return a verdict — rather than reporting
+  "fixed" — when the re-scan ran at a lower licence tier than the report it is checking,
+  or produced no findings at all on a project that had them.
+- **Sample output before install.** The Getting Started page now links a live scanned
+  pull request on the public playground repository and shows a real PR comment.
+- **The JSON report now carries each finding's `fingerprint`.** Every triage command
+  takes one (`pullguard ignore`, `explain`, `verify-fix`, and the `/pullguard ignore`
+  PR comment) and the documentation has always pointed at this field — it was missing,
+  so the documented workflow could not be followed from a JSON report. Additive: no
+  existing field changed.
+
+
+### Changed
+- **`pullguard scan` now honours a reviewed false-positive override in its exit code.**
+  A security finding you have marked `false_positive` in `.pullguardignore` (with a
+  reason, under CODEOWNERS review) already stopped blocking `pullguard gate`; bare
+  `pullguard scan` still failed the build on it, so the documented escape hatch was
+  unreachable unless you also ran the gate. The two commands now agree. Only the exit
+  code changes — the finding is still counted, still graded, and still rendered in the
+  report, PR comment, HTML report, JSON and SARIF, tagged with your reason. A critical
+  **without** an override still fails the build, and an override stops applying the
+  moment the reviewed code changes.
+
+### Added — documentation
+- **Language support matrix.** A new section in the docs says plainly, per language,
+  which kind of analysis you get: full taint-flow analysis (attacker-controlled input
+  traced to a dangerous sink, across functions and files), calibrated pattern rules, or
+  dependency CVE scanning — and where a language gets one but not the others. Ruby and
+  PHP are named explicitly as pattern-only. The table is checked against the shipped
+  analysis catalogs by a test, so it cannot drift from the product.
+- **Evidence tiers explained.** Every security finding carries an evidence tier saying
+  how it was established — dataflow-proven flows are labelled `taint-flow` or
+  `interprocedural`, calibrated pattern rules are labelled `pattern` — and the reports
+  documentation now covers what each means and how to triage with it. The tier is
+  display metadata: it never changes a severity, a grade, or whether a finding blocks.
+### Fixed — detection precision
+- **Django REST Framework**: a view guarded with `permission_classes`
+  (`IsAuthenticated`, `IsAuthenticatedOrReadOnly`, `IsAdminUser`, or your own
+  permission class) is no longer reported as missing authentication. The guard lives
+  on the view while the route lives in `urls.py`, and the two are now resolved
+  together — including the project-wide `DEFAULT_PERMISSION_CLASSES` setting. A view
+  declaring `AllowAny`, or declaring no permission classes at all, still fires.
+- **URLconf mounts**: `url(r'^api/', include('app.urls'))` is no longer reported as an
+  unauthenticated route — it is a mount, and the routes it mounts are still judged on
+  their own.
+- **Self-registration endpoints**: `POST /users` whose handler creates the account is
+  now treated like `/signup` and `/register` — a caller with no account cannot
+  authenticate. `GET /users`, `DELETE /users/:id`, and a `POST /users` that does
+  something other than create an account all still fire.
+- **Liveness and readiness probes**: a shallow `/healthz`, `/livez`, `/readyz` or
+  `/ping` that answers with a constant is no longer reported as missing
+  authentication — orchestrators cannot present credentials. A health endpoint that
+  reads a database, returns configuration or exposes build metadata still fires, and
+  `/metrics` and Spring actuator endpoints are unchanged.
+- **SSRF**: browser-side `fetch`/XHR wrappers are no longer reported as server-side
+  request forgery — a browser calling its own API is not the vulnerability. Server
+  code, and server-side rendering (Next.js `getServerSideProps` and route handlers,
+  Remix loaders, Nuxt event handlers), still fire. The rule also no longer mistakes an
+  ordinary local named `params`, `body` or `queryString` for a request value.
+
+- **Literal-valued conditionals**: a value chosen by a comparison against request data
+  (`const dir = req.query.x === 'a' ? 'uploads' : 'tmp'`) is no longer treated as
+  attacker-controlled — the comparison operand does not flow into the result. A
+  conditional whose branch **is** request data still fires.
+- **SQL in template literals**: a query whose only interpolations are literals, a
+  literal-only conditional, a constant clause list or a provably safe identifier is no
+  longer reported as SQL injection, and an HTML `<select>` element is no longer
+  mistaken for a SQL `SELECT`. A template interpolating a request value still fires.
+- **LDAP and XPath bound arguments**: the bound-arguments and variable-binding idioms —
+  the exact remediation the guidance recommends — are no longer reported as injection.
+- **Dev containers**: a `.devcontainer/Dockerfile` is not a deployed image and no
+  longer produces IaC findings.
+
+### Fixed — detection coverage
+- **Java query builders**: a raw SQL clause built by string concatenation is now
+  reported even when it shares a predicate with a safely bound comparator — previously
+  one bound comparator could silence the whole predicate, so the same injection was
+  reported or not depending on what sat beside it.
+
+### Fixed — scan performance
+- A large route file importing many rendering functions no longer makes cross-file
+  analysis take minutes — one real-world shape tripled scan time; it now scans in
+  seconds with identical findings.
+- **Dependency freshness on a slow registry.** On a Maven-heavy project, a slow
+  registry day could push the freshness check past the scanner's per-analyzer time
+  limit, dropping that analyzer's findings and marking the scan incomplete. The check
+  now bounds its own lookups: what it could measure is reported, the rest is counted
+  as unmeasured, and the scan completes normally.
+
+### Fixed — compliance mappings
+- Three EU AI Act control titles (Articles 10, 15 and 50) corrected against the enacted
+  Regulation text, in the signed rules bundle and the air-gapped fallback.
+
+### Changed
+- **Shell quoting lint**: an unquoted `$VAR` expansion (the shellcheck SC2086 class) is
+  now reported as `shell_unquoted_expansion` under the quality category instead of
+  `command_injection` under security. It is a real robustness defect, but not an
+  injection — reporting it as one inflated grades and compliance evidence and made
+  genuine command injection harder to find. The finding, its severity and its
+  remediation are unchanged and it still appears in every report, SARIF file and
+  dashboard. **If you filter or gate on `command_injection`, add
+  `shell_unquoted_expansion` to keep seeing these.**
+
+### Server (Enterprise) — 0.4.0
+
+> **Upgrade note (breaking):** the legacy `PULLGUARD_SERVER_INGEST_TOKENS` variable now
+> refuses to boot. Move to scoped tokens — `PULLGUARD_SERVER_INGEST_TOKEN_SCOPES="org/*=<token>"`
+> — or bridge one release with `PULLGUARD_SERVER_ALLOW_UNSCOPED_INGEST=true` (warns at
+> boot). SAML deployments must be on TLS. An SSO login in flight across the upgrade is
+> refused once. We recommend `PULLGUARD_SERVER_AUDIT_ANCHOR_FILE` on a volume separate
+> from the data directory.
+
+- **Finding lifecycle.** A finding absent from the next scan becomes **resolved**; one
+  that returns becomes **reopened** — nothing is deleted, the stored scans remain the
+  evidence. Surfaced as KPI cards, a per-scan *Fixed* column, a resolved/reopened strip
+  and read-only fields on the query API. `PULLGUARD_SERVER_RESOLVE_AFTER_SCANS`
+  (default 1) requires N consecutive absences so a truncated scan does not look like a fix.
+- **Accept risk** — a fourth triage status with a **required expiry (1–365 days) and
+  reason**; on expiry the finding is active again and stops counting as triaged. Also
+  available in `.pullguardignore` and via `/pullguard ignore … status:accepted_risk for:<N>d`.
+- **Dashboard decisions effective in CI** (opt-in `server.pullTriage: true`): a scan
+  pulls the repo's live decisions and applies them with `.pullguardignore` semantics; a
+  committed `.pullguardignore` entry always wins; any error fails open to "no decisions"
+  with a visible notice; the server never writes into your repository.
+- **Inline, labelled triage actions** (Acknowledge / False positive / Won't fix / Accept
+  risk until …) on the triage page and the repo dashboard; viewers see the same controls
+  disabled with a reason, never hidden. **Bulk and class-level triage**: select many rows
+  for one decision, or record one decision for a finding type over a path pattern with an
+  expiry (never for always-surfaced security types).
+- **Settings area**: per-repo **Hide/Unhide** with a note (display only — never a gate
+  input); **scoped token management** (create, rotate, revoke, expire — admin-only,
+  shown once, audit-logged); per-repo **gate policy** (versioned, echoed on the PR);
+  **retention** and **backup** (consistent snapshot with checksum sidecar into
+  `PULLGUARD_SERVER_BACKUP_DIR`, documented restore).
+- **SLA on the server**: over-SLA strip and ageing buckets; **scan-to-scan diff view**
+  (new, resolved, reopened, severity moves).
+- **250+ repositories**: the header's repo pills are replaced by a searchable,
+  keyboard-navigable repo switcher on every page, plus portfolio search and pagination.
+- **Query API for integrations**: `GET /api/v1/openapi.json` (OpenAPI 3.1, generated from
+  the live routes), a v1 additive-only stability statement, an *Integrate with the Query
+  API* guide, and findings now carry `type` and `findingKey` so they are actionable.
+- **Agent-to-agent** via `pullguard mcp --server` (see the scanner entry above): reads
+  bounded by token scope; writes only behind a per-token *agent write* flag, confirmed
+  per call and audit-logged.
+- **Alerts** (off by default): HMAC-signed webhooks to Slack/Teams-style receivers on new
+  critical, SLA breach, reopened and gate flips — exact-host allowlist, HTTPS only, bounded
+  retries with a dead-letter list; agent credentials can never administer them.
+- **Audit viewer** with in-UI hash-chain and anchor verification, an **auditor** role
+  (read-only, cannot triage), and a quarterly **compliance evidence pack** export
+  (worst-in-period and end state; "evidence supporting", never "compliant").
+- **Assignment and "my findings"**: owner suggestions from blame and the CODEOWNERS map
+  the scan carried (the server never reads your repo), `/me` and
+  `GET /api/v1/me/findings`, optional mentions.
+- **Team scope** from IdP group claims; **signed, expiring read-only share links** (off by
+  default, revocable, audited).
+- **Probes**: `/healthz` and `/readyz` documented, plus a documentation-completeness
+  check so every route, environment variable and CLI subcommand is documented before it
+  ships. A first-boot *expected errors* section in the quick start.
+- **Fixed**: a fresh deployment restarted before any triage no longer raises a false
+  tampering alert; blame-based ownership was silently absent from the query API; reads
+  returned 503 when only scoped tokens were configured; the shared read guard named the
+  wrong resource in refusals.
+
 ## [1.5.7] — 2026-08-29
 
 Follow-up to the v1.5.6 customer validation plus a proactive precision/recall sweep of the
