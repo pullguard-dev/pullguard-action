@@ -10,6 +10,20 @@ Live release notes for the hosted scanner: [pullguard.dev](https://www.pullguard
 
 _Customer-visible changes already live on `:latest` but not yet bundled into a cut image tag. Pin a specific release below for change-controlled, reproducible scans._
 
+### Server (Enterprise) — 0.4.1
+
+- **Fixed — false tampering alert on upgrade.** A server database created by 0.3.5 that had
+  never recorded a triage decision reported "TAMPERING" on its first 0.4.0 boot and advised a
+  restore from a backup that could not exist. The 0.4.0 fix covered new deployments only; a
+  database left in that state by 0.3.5 is now repaired at boot when its audit log has provably
+  never held a row, and says so. A log that has held rows and lost its counter is still
+  reported as tampering.
+- **Added — `pullguard-server token mint`.** Mint the first admin-capable managed token from
+  the host that owns the data directory, so Settings (hide repositories, tokens, gate policy,
+  SLA, alerts) is reachable on deployments without single sign-on. Printed once, never
+  stored, bounded expiry, audit-logged.
+
+
 ---
 
 ## [1.5.8] — 2026-09-04
