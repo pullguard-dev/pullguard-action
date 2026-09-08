@@ -8,7 +8,68 @@ Live release notes for the hosted scanner: [pullguard.dev](https://www.pullguard
 
 ## [Unreleased]
 
-_Customer-visible changes already live on `:latest` but not yet bundled into a cut image tag. Pin a specific release below for change-controlled, reproducible scans._
+_Customer-visible changes already live on `:latest` but not yet bundled into a cut image tag. Pin a specific release below for reproducible scans._
+
+---
+
+## [1.5.9] — 2026-09-08
+
+> **Server unchanged at 0.4.1** — no upgrade step for self-hosted deployments. The server notes
+> below shipped with 0.4.1 and are recorded here for the first time.
+
+This release is about **Java coverage and precision**: PullGuard now follows request data
+through the shapes real Java applications actually use, and reports fewer findings it cannot
+stand behind. Every finding a v1.5.8 scan reported on our benchmark applications is still
+reported, except one that was matching a commented-out line.
+
+### Added — request data is followed through the Java shapes real code uses
+- **The servlet request surface.** Header enumerations, parameter names and the request line
+  (URI, URL, servlet path, path info) are treated as attacker input, and a for-each loop over
+  request cookies, headers or parameters taints the loop variable.
+- **Wrapper classes.** When a class is constructed with the request and one of its methods
+  returns a value read from it, that value is followed into sinks in the calling code — whether
+  the wrapper is held in a variable, chained directly, stored in a field by the constructor and
+  read in another method, or declared in another file. Only methods that demonstrably return
+  request data count; when two files declare the same class name, the caller's own qualifier,
+  `import` or package decides which is meant, and where there is no evidence, neither is used.
+- **Assignments wrapped onto the next line** — the way most formatters break a long call — now
+  reach the variable they assign to, in every language.
+
+### Changed — fewer findings we cannot stand behind
+- **A helper that encodes or returns a constant no longer taints its result.** When a value
+  passes through a method whose every return is a recognised output encoder or a constant, the
+  calling code treats it as that encoder: an HTML-encoded value no longer reports cross-site
+  scripting at an HTML output, and still reports SQL, LDAP, XPath, command and path injection,
+  because an HTML encoder is not a sanitizer for those. This now also applies to helpers in
+  another file, to helpers judged per parameter, and to JavaScript, TypeScript and C# helpers
+  declared in the calling file. A helper the engine cannot fully see through is unchanged.
+- **SQL built by string concatenation listens to the taint engine.** When every concatenated
+  value is provably derived inside that function, the finding is reported one step lower with
+  the proof attached. It stays visible, keeps its type and location, and still counts. Anything
+  unproven, and every file where the engine cannot run, is reported exactly as before.
+- **A value overwritten with a constant before use** is no longer reported, when the overwrite
+  is in the same block with no branch or loop between the two statements.
+- **A sanitized value concatenated with a raw one** is no longer cleared along with it. Only
+  the value that passed through the sanitizer is cleared; a raw value beside it is followed to
+  the sink.
+
+### Added — an SBOM with every scan
+- Every Action run now produces **`pullguard-sbom.cdx.json`** (CycloneDX) and
+  **`pullguard-sbom.spdx.json`** (SPDX) alongside the existing report artifacts, built from the
+  dependency inventory the scan already collected. Licence obligations map to ISO/IEC
+  27001:2022 **A.5.32** in the compliance evidence.
+
+### Fixed
+- **Self-hosted server: results are accepted again when a licence needs review.** A scan whose
+  licence inventory contained an entry for review carried a field the server refuses on
+  principle, so posting that report returned an error and the dashboard stopped updating for
+  that repository. Reports from earlier versions were unaffected, and the server's protection
+  is unchanged.
+- **The licence-key email no longer says the key never expires.** Keys carry an expiry date,
+  and an expired key falls back to the free tier — which your scan report already warns about
+  up to 14 days ahead. The email now says so.
+- **The Data Processing Addendum is linked from the site footer**, not only from inside the
+  privacy policy.
 
 ### Server (Enterprise) — 0.4.1
 
@@ -23,9 +84,7 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
   SLA, alerts) is reachable on deployments without single sign-on. Printed once, never
   stored, bounded expiry, audit-logged.
 
-
 ---
-
 ## [1.5.8] — 2026-09-04
 
 > Ships with **server 0.4.0** — see the *Server (Enterprise)* section at the end of this entry; it carries a breaking upgrade note.
