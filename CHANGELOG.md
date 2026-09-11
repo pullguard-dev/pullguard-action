@@ -12,6 +12,32 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.5.10] — 2026-09-10
+
+> **Server unchanged at 0.4.1** — no upgrade step for self-hosted deployments.
+
+A fast-follow patch. **Scanning a JavaScript file could take dramatically longer on 1.5.9 than
+on 1.5.8** — in the worst cases long enough that a scan had to be abandoned rather than waited
+out. This release returns that work to 1.5.8 timing.
+
+### Fixed — JavaScript scan performance
+- Work that depends only on a function and its name was being repeated at every step of an
+  internal analysis walk instead of once. On a reduced file supplied by the customer who
+  reported it, a 2KB source file went from 0.5s on 1.5.8 to 15.8s on 1.5.9; it is back to
+  1.5.8 timing.
+- **No detection change.** Findings are identical before and after: the OWASP Benchmark
+  confusion matrix is byte-identical per category, and a per-finding differential across nine
+  real vulnerable applications shows zero findings gained or lost. Nothing was disabled,
+  narrowed or traded away to make the scan faster.
+- The reporter's file is now a permanent regression fixture in our test suite, and scan
+  duration is checked on a large-repository bed as part of every release.
+
+### Known issue
+- **Java-heavy repositories may still scan more slowly on 1.5.9 / 1.5.10 than on 1.5.8.** That
+  is a separate regression, it is not addressed by this release, and work on it is ongoing.
+
+---
+
 ## [1.5.9] — 2026-09-08
 
 > **Server unchanged at 0.4.1** — no upgrade step for self-hosted deployments. The server notes
