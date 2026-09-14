@@ -90,6 +90,9 @@ outputs:
   findings:
     description: 'Total finding count'
     value: ${{ steps.scan.outputs.findings }}
+  partial-scan:
+    description: "'true' when a read / collection / depth cap bit (findings are a lower bound), 'false' when complete, 'unknown' when the report carried no coverage data"
+    value: ${{ steps.scan.outputs.partial-scan }}
 
 runs:
   using: 'composite'
