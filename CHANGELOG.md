@@ -12,6 +12,43 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.5.12] — 2026-09-15
+
+> **Ships with server 0.4.3** (one attribution fix, no upgrade step beyond pulling the image).
+
+The dataflow engine's pattern matching is 4–8x faster on large Java and JavaScript codebases, with
+every finding identical before and after. Measured on the OWASP Benchmark (2,740 Java test cases) a
+whole scan goes from 84.7 s to 18.7 s and on WebGoat from 24.6 s to 9.7 s; peak memory is unchanged.
+
+### Performance
+- **Scans are much faster on large codebases.** The dataflow engine's pattern matcher now uses
+  literal prefiltering and DFA acceleration. Same patterns, same matches, faster; findings are
+  byte-identical on every benchmark bed. The container image grows by about 280 KB.
+
+### Fixed — detection
+- **A destructured parameter with a default keeps its taint** (JavaScript / TypeScript).
+  `({ data: payload = {} }) => …` and `const { q = {} } = req.body` now track `payload` / `q` as
+  attacker-controlled; the default was previously misread as a reset and the flow was dropped.
+- **`dangerouslySetInnerHTML` on a `<style>` element is no longer reported as XSS** (React). A style
+  element's content is CSS text, never parsed as markup. Any other element is reported as before.
+- **`escapeHTML(...)` and `encodeHtml(...)` are recognised as sanitizers** at an HTML sink.
+- **A documentation tree's `docs/requirements.txt` counts as a declared-dependency manifest**
+  (Python), so a Sphinx build's imports are no longer reported as hallucinated dependencies.
+
+### Fixed — scan behaviour
+- **`maxFiles` is an exact cap.** It used to overshoot by one directory batch; the coverage banner
+  and the report now agree exactly, and a repository with exactly `maxFiles` files is reported
+  complete.
+- **The Action job log shows the zero-day threat-rule summary line** at the default log level, so a
+  run proves the curated pass ran and what it cost.
+
+### Server (Enterprise) — 0.4.3
+- **A triage decision written with a managed token is attributed to that token** on the finding and
+  in the audit log (`agent:<client>#<token id>`); a caller that sent no client name previously read
+  back as `agent:unknown`. The id is the token's row id, never the secret.
+
+---
+
 ## [1.5.11] — 2026-09-14
 
 > **Ships with server 0.4.2** (two opt-in additions, no upgrade step beyond pulling the image).
