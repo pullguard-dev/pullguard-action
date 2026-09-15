@@ -12,6 +12,65 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.5.11] — 2026-09-14
+
+> **Ships with server 0.4.2** (two opt-in additions, no upgrade step beyond pulling the image).
+
+The Java performance follow-up to 1.5.10, plus coverage you can gate on. Java-heavy repositories
+scan faster again with every finding identical before and after; a default scan now analyses the
+whole repository instead of a fifth of it; and both the Action and the self-hosted server can
+refuse a partial scan.
+
+### Changed — the default read cap now equals the default collection cap
+- `maxFilesRead` defaults to `maxFiles` (5,000) and follows it when you raise `maxFiles`. A default
+  scan used to collect up to 5,000 files but analyse only the first 1,000 by path. A default scan is
+  now either complete or truncated at collection, and says so on every surface. Repositories above
+  1,000 files will see longer scans and more findings from this release — those findings were
+  always there. `maxFilesRead` remains an advanced override for a deliberate partial scan.
+
+### Added — gate on scan coverage
+- **Action output `partial-scan`** — `true` when a read, collection or depth cap cut the scan short,
+  `false` when complete, `unknown` when the report carried no coverage data. Fail your job on it, or
+  run a full scan on a schedule when the pull-request scan was capped.
+- **Server quality-gate condition `partial_scan_max`** — set to `0` to refuse any capped scan. A
+  report with no coverage data counts as partial.
+
+### Fixed — scan performance on Java
+- Java-heavy repositories scan faster again with findings identical, and online scans no longer
+  pay a hidden per-rule pass for the zero-day threat rules (that pass was most of a Java CI scan's
+  wall clock; it is now well under a second). Two numbers, stated separately: on our 2,740-file
+  Java benchmark the offline engine scan went from 107.0 s to 87.2 s (-18%), and the same scan run
+  online — the way CI runs — from 234.7 s to 83.9 s (-64%). The remaining Java gap against 1.5.8
+  is separately attributed and work continues.
+- A scan that runs out of its time budget now reports what it did, lists the analyzer it stopped
+  in, and marks the findings as a lower bound, instead of being killed with no report.
+
+### Fixed — precision and recall (Java)
+- A value coerced to a non-text type, a method that commits its response as JSON, and a GraphQL
+  argument declared as an enum are no longer treated as attacker text.
+- A request value read through a formatter-wrapped method chain is followed again; a sort key
+  spelled as a literal plus a request value is now reported.
+- Findings inside a debug-filter-gated class name the gate; dataflow findings name the real source
+  and sink lines.
+
+### Changed — one grade for cross-site scripting
+- `xss_vulnerability` reports at `major` from the pattern rule as well as from the dataflow engine.
+  If your gate keys on critical XSS from the pattern rule, it will see those findings at major.
+
+### Added — switches
+- `threatRules.enabled: false` skips the curated zero-day pass (on by default; the skip is logged).
+- `taint.calleePositionalProofs` (default `false`) enables per-position helper proofs on Java.
+
+### Server (Enterprise) — 0.4.2
+- **Quality gate `partial_scan_max`** (above).
+- **`PULLGUARD_SAML_UNSOLICITED_REDIRECT=true`** (default off) bridges the identity provider's
+  launcher tile: an unsolicited SAML assertion is answered with one redirect into a normal login
+  instead of the `Login failed` page. The assertion is never parsed or used, the redirect target is
+  fixed, a login that fails after that redirect shows the error, and the refused attempt stays in
+  the audit log.
+
+---
+
 ## [1.5.10] — 2026-09-10
 
 > **Server unchanged at 0.4.1** — no upgrade step for self-hosted deployments.
