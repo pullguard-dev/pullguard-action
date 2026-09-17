@@ -12,6 +12,66 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.5.13] — 2026-09-17
+
+> **No server release.** Server stays at 0.4.3; pulling the new scanner image is the whole upgrade.
+
+A value that crosses a function boundary is now traced as reliably as one written inside a single
+function — a listener handing its payload to a helper, an annotated request parameter, code at the
+top level of a module. Large Java and TypeScript projects also scan substantially faster: on the
+1,420-file performance bed a whole scan goes from 88 s to 53 s, with findings verified identical
+between the two published images.
+
+### Detection
+- **A `postMessage` payload handed to another function is traced.** A `message` listener that
+  destructures its event and passes the value on produced nothing before, while the same two lines
+  inside one function were reported.
+- **An annotated request parameter is a source across a call boundary** (Java / Spring).
+  `handler(@RequestParam String q) { helper(q); }` was silent while the `request.getParameter(...)`
+  twin fired.
+- **Code at the top level of a module is a caller.** A value read at module scope and passed to an
+  imported function is now followed into it.
+- **Vulnerability types are reported accurately.** `new URL`, `new File` and most `Files.*` sinks
+  were reported as command injection; an SSRF is now reported as an SSRF and a Zip Slip as a path
+  traversal, including across files.
+
+### Precision
+- **A route MOUNT is not a dataflow.** Registering a handler no longer reports the handler's sinks
+  against the file that mounted it, and the endpoint-risk scores built on those reports are gone.
+- **A sanitized value stays sanitized across a module boundary.** `escapeHtml(raw)` passed to an
+  imported function was re-reported as attacker input.
+- **A finding is no longer decided by a line that runs after it.** An assignment below a sink could
+  both create a finding that was not real and hide one that was.
+- **A finding's location is the code, not the comment.** A rule could anchor on text inside a
+  docstring rather than the statement it describes.
+
+### Performance
+- **Large projects scan substantially faster.** Work that grew with the number of tracked values in
+  a file is now flat; findings are unchanged.
+
+### Reporting
+- **An offline scan says the curated zero-day rules did not run.** With `PULLGUARD_OFFLINE=true`, or
+  when the signed rules bundle cannot be fetched, those rules are unavailable — previously silent
+  while tier and coverage both reported healthy. The cause is now named, and a machine-readable
+  `threatRuleCoverage` lets a dashboard or gate tell "no zero-day findings" from "the zero-day rules
+  never ran".
+- **Scan duration is retained with each scan**, so the over-time dashboard and a self-hosted server
+  can trend scan cost alongside findings.
+- **New: `permissive_postmessage_target`.** `postMessage(payload, '*')` broadcasts to any origin.
+- **The gate banner states the tense that is true.** A run that enforces nothing reads
+  `would FAIL … this run is ADVISORY` instead of claiming a FAIL beside a green check.
+- **A complete scan says it is complete**, rather than stating coverage only when a scan is partial.
+
+### Licensing
+- **The expiry warning starts 90 days out and escalates.** It fired only inside 14 days, which is
+  not enough notice to raise a purchase request, get it approved and rotate a secret in CI.
+
+### Dependencies
+- **Every Gradle subproject is read**, not the root build file alone, and a version declared in a
+  constraints or platform block resolves.
+
+---
+
 ## [1.5.12] — 2026-09-15
 
 > **Ships with server 0.4.3** (one attribution fix, no upgrade step beyond pulling the image).
