@@ -12,6 +12,61 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.5.14] — 2026-09-22
+
+> **No server release.** Server stays at 0.4.3; pulling the new scanner image is the whole upgrade.
+> **Please upgrade if you scan large Gradle monorepos** — see the first item.
+
+A dependency scan that runs out of time no longer reports a clean result. On a large Gradle
+monorepo, the subproject reading shipped in 1.5.13 grew the dependency inventory from 10 to 390;
+the extra work crossed the dependency analyzer's time limit, the analyzer was stopped, and the 24
+CVE findings it had already computed were discarded — the report said zero. Every part of that is
+fixed, and the analyzer now does a fraction of the network requests it did.
+
+### Security
+- **Computed CVE findings survive a time limit.** Findings stream to the report as they are found;
+  a run that hits its limit keeps everything found so far and marks the analyzer incomplete rather
+  than reporting a clean result.
+- **`PULLGUARD_ANALYZER_TIMEOUT_MS` now governs every execution mode.** The default mode had a
+  separate, undocumented 30-second limit that the setting did not reach.
+- **A hit limit is announced where you read.** The job log and the Checks tab now carry an explicit
+  annotation naming the analyzer; the PR comment and step summary already did.
+
+### Performance
+- **One vulnerability query per scan instead of one per dependency.** A 320-dependency repository
+  makes 13 advisory requests where it made 31, a lockfile-heavy one 23 where it made 74, with
+  identical findings.
+- **Licence resolution twice as fast**, same requests, same answers.
+- **Maven freshness now measures Maven.** Three quarters of its registry requests were timing out;
+  it reads the registry's static metadata instead — every dependency checked, no aborts.
+- **Per-analyzer timings on every report** (`analyzerDurations`), and the slowest analyzers printed
+  at the end of a scan.
+
+### Detection
+- **A call whose arguments wrap across lines is read like one that does not.** The
+  `permissive_postmessage_target` rule shipped in 1.5.13 reported nothing on wrapped calls — the
+  way most real sites are written. The same class affected 48 known-answer cases across the rule
+  matchers, the dataflow engine and the cross-function analysis; all now agree in both spellings.
+  On the OWASP Benchmark this is +31 true detections with nothing lost.
+- **Fixed before shipping:** the wrapped-call change had silenced one open-redirect shape — a
+  request value read inside a wrapped call a few lines above the sink. Caught by comparing every
+  finding on real repositories between the previous release and this one, and fixed before the tag.
+- **A guard that pins a value to one exact string is proof.** `if (url.matches("http://…"))`
+  before `new URL(url)` no longer reports SSRF.
+- **A `String` parameter passed as a literal at every call site is proven.** A helper concatenating
+  such a parameter into SQL is kept at `major` with the proof attached (`all 6 call sites across
+  2 files pass a literal`) instead of `critical`; one caller passing anything else, or a scan that
+  did not read every file, keeps `critical`. Java and C#.
+
+### Configuration
+- **`sqlInjection.patternSeverity: major`** (opt-in, default `critical`): rank the taint-unaware
+  SQL string-concat rule one step below dataflow-proven findings when it has no proof of its own.
+  Findings are kept and record the option that moved them; the option cannot go below `major`.
+
+### Quality gates
+- The real-repository regression bed fails on a per-analyzer cost cliff, not only on a per-scan
+  total, and refuses to score a scan whose analyzer did not complete.
+
 ## [1.5.13] — 2026-09-17
 
 > **No server release.** Server stays at 0.4.3; pulling the new scanner image is the whole upgrade.
