@@ -12,6 +12,76 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.5.15] — 2026-09-23
+
+> **No server release.** Server stays at 0.4.3; pulling the new scanner image is the whole upgrade.
+
+Every published scanner image now carries its own vulnerability database, images are built for both
+`linux/amd64` and `linux/arm64` under one digest, and a taint finding points at the line that is
+actually dangerous — the true source and the true sink, including when a flow crosses files.
+
+### Security
+- **A taint finding now points at the line that is actually dangerous.** A message-handler flow
+  could be reported with its dangerous write attributed to the wrong line in the same function,
+  while the real write went unreported; both the true source line and the true sink line are now
+  reported, and the same fix applies when the flow crosses files.
+- **A dependency scan that could not finish is never silent.** When the dependency analyzer can't
+  complete in time, the console now prints an explicit `INCOMPLETE:` banner naming it, in addition
+  to the note already carried on the report and PR comment. An opt-in `--fail-on-incomplete` (or
+  `PULLGUARD_FAIL_ON_INCOMPLETE=true`) exits non-zero on an incomplete scan instead of a clean one.
+- **Argument-list command execution is graded as argument injection**, not full command injection,
+  unless the value could become a flag or the call runs through a shell — nothing is dropped, only
+  ranked correctly.
+- **`postMessage` wildcard-target detection catches a few remaining spellings** that a nested
+  function call or object literal in the first argument could previously hide from it.
+
+### Supply chain
+- **Every published scanner image now ships its own vulnerability database**, refreshed when the
+  image was built. CVE lookups run locally and deterministically with no configuration required —
+  in the Marketplace Action and via `docker run` alike — so a runner with no outbound network access
+  still reports every CVE. When the image's database is older than the configured freshness window
+  and the network is reachable, the advisory service is consulted as a supplement and merged in;
+  being unreachable never drops a locally-known finding. `db.path` and the new `PULLGUARD_DB_PATH`
+  variable still point a scan at a different database, and `pullguard db status` now reports plainly
+  when none is present.
+- **Images are published for `linux/amd64` and `linux/arm64`** under a single tag and digest, so a
+  self-hosted arm64 runner pulls a native image instead of emulating one.
+
+### Precision — false positives removed
+- **Comments never create, silence, or change the severity of a finding**, in either direction,
+  across the reflection, injection and JWT checks.
+- **A route written inside a comment or a string literal is not an endpoint**, and CORS preflight
+  requests and the standard browser-convention public files (favicon, robots.txt, security.txt, web
+  manifests) are no longer reported as unauthenticated.
+- **A Content-Security-Policy directive governed only by `style-src`** is down-ranked rather than
+  dropped; the same value under `script-src` or `default-src` is unchanged.
+- **A parameterised query in Go is recognised as parameterised**, not reported as string-built SQL.
+- A handful of related false positives in route detection, template rendering and cross-file
+  analysis are fixed alongside these.
+
+### Recall — shapes that are now reported
+- **Go:** a request body, path or query value read through a multi-value assignment, or decoded
+  directly into a struct, is now traced as a source.
+- **All languages:** a request value used directly as an argument to a sink call, with no
+  intermediate variable, is now reported at the same severity as the same value through a variable.
+- **Open redirect:** the fallback-target idiom (`next || currentPath`) and Django's `redirect()` are
+  now covered.
+- **A render callback that forwards a whole request object into a template is traced through to its
+  output.**
+- **Go:** a handler written as a closure and passed directly into a registration call, rather than
+  declared separately, is reported again — a gap introduced in the previous release is now closed.
+
+### Performance
+- **Cross-file analysis no longer recompiles a pattern for every function it inspects** on a large
+  repository — one pass per file, identical findings, substantially faster on large codebases.
+- **Long-running uses of the scanner (the MCP server, IDE extensions) load language grammars once
+  per process instead of once per scan.**
+
+### Quality gates
+- Release verification now compares a taint finding by both the line it came from and the line it
+  reached, not only its anchor point, so a finding that names the wrong line is caught before it
+  ships.
+
 ## [1.5.14] — 2026-09-22
 
 > **No server release.** Server stays at 0.4.3; pulling the new scanner image is the whole upgrade.
