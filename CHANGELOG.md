@@ -12,6 +12,40 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.5.16] — 2026-09-24
+
+> **No server release.** Server stays at 0.4.3; pulling the new scanner image is the whole upgrade.
+> **Recommended over 1.5.15** for every user.
+
+A hotfix for dependency vulnerability matching, plus three detection regressions from 1.5.15.
+
+### Security — dependency vulnerabilities
+- **Advisory version ranges are evaluated exactly as the advisory schema defines them** whenever a local
+  vulnerability database is used, including the database that now ships in the image. Previously an advisory whose
+  range ended in a "last affected" version could be matched against every later version, producing a false
+  finding. This affected every earlier release that used a local database; 1.5.15 made the local database the
+  default. A range that cannot be evaluated is reported as unverified at its full severity, never dropped.
+- **One vulnerable package no longer hides another.** Dependency findings are now reported once per vulnerable
+  package instead of once per manifest, on both the local and the online path. Expect more `known_cve` findings on
+  some repositories: they were already found, and previously only the most severe package per manifest was shown.
+- **Withdrawn advisories are no longer reported**, advisory ids are counted once, `Gemfile.lock` versions are used,
+  Python package names are normalised, and npm aliases are checked as the real package.
+- A dependency whose version cannot be resolved keeps its real severity and is marked as unresolved.
+- **One-time re-key:** because dependency findings are now per package, baselines and code-scanning alerts for
+  dependency findings re-key once on the first scan after upgrading.
+
+### Detection — regressions from 1.5.15, fixed
+- A shell-less list-form `subprocess` call with user input as a discrete argument is graded the same (moderate, with
+  the mechanism named) whether the value is written inline, through a variable, or across functions. A value handed
+  to a program that executes its arguments (`sh -c`, `python -c`, `sudo`, `ssh`) is critical again.
+- Cross-file flows through a function whose name starts with `$` are reported again.
+- Cross-file flows whose return value is destructured are reported again.
+
+### Corrections to the 1.5.15 notes
+- "Still reports every CVE" offline was not true in every configuration until this release (see above).
+- "Comments never change a verdict" applies to code-flow rules; hardcoded-secret detection deliberately still reads
+  comments, because a commented-out credential is a real leak.
+
 ## [1.5.15] — 2026-09-23
 
 > **No server release.** Server stays at 0.4.3; pulling the new scanner image is the whole upgrade.
