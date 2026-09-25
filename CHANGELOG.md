@@ -12,6 +12,56 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.5.17] — 2026-09-25
+
+> **Ships with server 0.4.4** (self-hosted Enterprise server). No Action input changes: `@v1` users get the new
+> scanner image on their next scan.
+
+### Dependency vulnerabilities and SBOM
+- **pnpm 11 and later lockfiles are read again.** pnpm now writes `pnpm-lock.yaml` as two YAML documents, and
+  previously only single-document files were read. As a result, SBOMs for pnpm repositories silently lost every
+  transitive dependency, and CVE matching used the lowest version a `package.json` range allows instead of the
+  installed version. That could report a vulnerability you had already upgraded past, or miss one above the floor.
+  Expect larger SBOMs for pnpm repositories, and CVE findings against the versions actually installed.
+- **Python, Maven, Go and Ruby manifests below the repository root are now scanned** for CVEs. Each finding names
+  the manifest it came from.
+- **"Fix available" names the fix on your own release line** instead of the newest line of the package.
+- **CVE data age is always stated.** An offline scan against old data says so.
+
+### Hardcoded secrets
+- **Secrets are now detected in entry points, config files, components and agent code.** This covers `app.py`,
+  `server.js`, `index.ts`, `*.config.js`, React `components/`, Next.js `pages/`, agent `tools/`, `mcp/` servers and
+  `infra/` code. The secret rules had previously shared a file list with the dead-code check, so none of them ran
+  on these files. Expect new `hardcoded_secret` findings where such files carry credentials.
+- **A real provider key in test, example or documentation code is now reported** at full severity. This covers
+  AWS, GitHub, Stripe, Slack, OpenAI, Anthropic and other value-verified formats.
+- **Low-confidence matches are shown at minor instead of dropped or raised to critical.** This applies to:
+  - label-only placeholders in test and documentation directories;
+  - values named as public keys;
+  - Solana program ids, mints and transaction signatures;
+  - the public members of a JSON Web Key.
+
+  Each one is reported once per file, with the reason and a count, and does not fail a gate set at major. A value's
+  name alone never hides it: a secret stored as `publicKey` or `mint` stays visible. No path reports less than it
+  did in 1.5.16.
+- **Entropy-based detection now runs on production paths whose names contain "test"**, such as `src/attestation/`
+  and `latest/`.
+
+### Python taint analysis
+- **Python data flows between files are now analysed.** Absolute and relative imports resolve against the
+  repository root and `src/`-style layouts.
+- More request reads are recognised as user input across aiohttp, Starlette/FastAPI, Flask and Django.
+
+### Server (Enterprise) — 0.4.4
+- **`pullguard-server` is now a command inside the image**:
+  `docker compose exec pullguard-server pullguard-server token mint …` and `… audit verify` work as documented.
+  On 0.4.3 and earlier, use `docker exec <container> node dist/index.js token mint …`.
+- An unrecognised command prints usage and exits with code 2 instead of starting a second server.
+- The token-mint example in the docs is now a single line, so it can be pasted as-is. Compose, Docker and Kubernetes
+  forms are documented.
+
+---
+
 ## [1.5.16] — 2026-09-24
 
 > **No server release.** Server stays at 0.4.3; pulling the new scanner image is the whole upgrade.
