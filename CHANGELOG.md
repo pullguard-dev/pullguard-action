@@ -18,6 +18,9 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 > scanner image on their next scan.
 
 ### Dependency vulnerabilities and SBOM
+<!-- covers: Dependency vulnerability coverage -->
+<!-- covers: Dependency upgrade advice -->
+<!-- covers: CVE data age is always stated -->
 - **pnpm 11 and later lockfiles are read again.** pnpm now writes `pnpm-lock.yaml` as two YAML documents, and
   previously only single-document files were read. As a result, SBOMs for pnpm repositories silently lost every
   transitive dependency, and CVE matching used the lowest version a `package.json` range allows instead of the
@@ -27,6 +30,8 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
   the manifest it came from.
 - **"Fix available" names the fix on your own release line** instead of the newest line of the package.
 - **CVE data age is always stated.** An offline scan against old data says so.
+- A manifest inside a test or fixture folder is still reported, one severity step lower, with the reason stated.
+- Expect new CVE findings on repositories with manifests below the root.
 
 ### Hardcoded secrets
 - **Secrets are now detected in entry points, config files, components and agent code.** This covers `app.py`,
@@ -51,6 +56,79 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 - **Python data flows between files are now analysed.** Absolute and relative imports resolve against the
   repository root and `src/`-style layouts.
 - More request reads are recognised as user input across aiohttp, Starlette/FastAPI, Flask and Django.
+
+### Zero-day threat rules in air-gapped environments
+- **Air-gapped scans can now run the Tier-2 zero-day threat rules.** Previously an offline scan used the built-in rule
+  catalog, which carries no zero-day rules, and there was no way to supply them. To enable them:
+  1. On a connected machine, save the signed bundle: `curl -o rules-bundle.json https://pullguard.dev/api/rules`.
+  2. Carry the file into the air-gapped environment.
+  3. Set `PULLGUARD_RULES_BUNDLE_PATH` to its path.
+
+  The file is verified with the signing key the scanner already embeds, and no network call is made. A modified,
+  unsigned, oversized or unreadable file is rejected; the scan then uses the built-in catalog and says so.
+
+### Finding locations
+- **Findings for data that flows between functions in the same file now point at real lines.** Every step in the path
+  carries the line of the call it makes, and the sink end carries the line of the dangerous operation. Previously both
+  ends showed the function declaration and the intermediate steps showed no line. The source end is the line that reads
+  the value passed down the chain, not a condition that only tests it. Only the displayed lines change: findings,
+  severities, counts and baseline fingerprints are unaffected.
+
+### Fewer false positives
+- **Solana public keys, program ids, mints and transaction signatures** are reported as one minor finding per file
+  instead of major hardcoded secrets. A 64-byte secret key, a 32-byte value named as a seed, values in an unnamed list
+  and any real secret later in the file are still reported at full severity.
+- Python DB-API `execute`: a value passed as a bound parameter is no longer reported as SQL injection, inline or through
+  a call, and a triple-quoted bound query is no longer reported.
+- A docstring that quotes old vulnerable code no longer produces a finding.
+- `breaking_change` no longer reports removed parameters on unchanged functions that have several `@overload`
+  definitions or generic type annotations. A parameter removed after an annotation is now reported. A signature
+  baseline written by an earlier version is compared as written, then upgraded in place.
+- A variable name that appears only inside a string literal is no longer treated as a use of that variable, and a
+  comparison (`if (req.query.name == null)`) is no longer read as an assignment.
+- A request value that only chooses between fixed strings (`res.send(req.query.n === 'a' ? 'x' : 'y')`) is no longer
+  reported as XSS. A request value used as one of the results still is.
+- Django open redirects: a same-origin target rebuilt by a helper, as in Django admin, is no longer reported. A target
+  checked with `url_has_allowed_host_and_scheme` (or `is_safe_url` before Django 3.0) is reported **one grade lower**,
+  with the check named. It is never hidden.
+- Rails' own definition of `skip_forgery_protection` is no longer reported. An application that calls it still is.
+- A Go module that `go.mod` replaces with a local directory is no longer matched against the published module's
+  advisories.
+- A Python shell command whose request values all pass through `shlex.quote` is reported **one grade lower**, with the
+  reason stated. It is never hidden.
+- A Python import declared by a manifest in one of the file's parent directories (`ml/requirements.txt` for
+  `ml/train.py`) is no longer reported as an undeclared or hallucinated package.
+
+### More findings
+Expect new findings on code with these shapes; they can change a gate result.
+- A request read inside a triple-quoted Python f-string is analysed again. It was missed in 1.5.15 and 1.5.16.
+- A value passed to a method of an imported class instance (`const r = new Runner(); r.run(req.query.dir)`) is followed
+  into that method.
+- Functions and helpers whose names start with `$` are followed within a file, as they already were across files.
+- A parameter that reaches a sink through a tuple unpack inside the called function is followed.
+- **An Express catch-all handler that redirects to the raw request path is reported as an open redirect.** A
+  leading-slash guard is honoured.
+- On Windows (CRLF) checkouts, Python `import` lines are read correctly, so an undeclared or hallucinated package
+  imported that way is reported.
+
+### Consistency
+- Findings appear in the same order on every scan of the same code.
+- A step in a flow that returns a value to its caller shows the line of the `return`.
+- In a long-running process such as the MCP server, a registry lookup that failed for one scan no longer affects
+  another scan running at the same time.
+- On Windows (CRLF) checkouts, a call written across several lines is read the same as on a Linux checkout.
+- Text inside Python f-strings no longer counts toward complexity metrics, so complexity findings match 1.5.16 on
+  unchanged code. Security analysis still reads f-strings as code.
+
+### Evidence quality
+- An `endpoint_risk` finding names every unauthenticated route in the file, not only the first.
+- A cross-file flow into a list argument of a shell-less subprocess call is graded `moderate` with the reason stated,
+  matching the same-file analysis, and its sink carries a line.
+
+### Type coverage
+- A function passed directly as a call argument (the callback in `events.map((e) => e.id)`) is typed by the receiving
+  function and is no longer counted as untyped. This is a measurement correction: the type-coverage percentage and the
+  `low_type_coverage` severity band can move, usually upward, on files whose source has not changed.
 
 ### Server (Enterprise) — 0.4.4
 - **`pullguard-server` is now a command inside the image**:
