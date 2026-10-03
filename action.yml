@@ -177,7 +177,12 @@ runs:
         # pass-through form `-e VAR` (value read from the step env, NOT placed on
         # the argv). Non-secret GitHub metadata stays inline — leaking public
         # repo/sha/event on the argv is harmless.
+        # WHY the proxy variables (PROXYENV-01, 2026-10-01): a self-hosted runner
+        # behind an egress proxy sets them, and without them the scan's licence,
+        # rules and advisory calls went direct. Pass-through form, because a proxy
+        # URL can carry credentials; an unset variable is simply not passed.
         docker run --rm \
+          -e HTTPS_PROXY -e https_proxy -e HTTP_PROXY -e http_proxy -e NO_PROXY -e no_proxy \
           -v "${{ github.workspace }}:/workspace" \
           -e GITHUB_TOKEN \
           -e GITHUB_REPOSITORY="${{ github.repository }}" \
