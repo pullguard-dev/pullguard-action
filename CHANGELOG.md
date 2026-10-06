@@ -12,6 +12,241 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.5.18] — 2026-10-06
+
+> **Ships with server 0.4.5** (self-hosted Enterprise server). The Action's `image-pin` default rides the `:1` image tag, so `@v1` users get the new scanner on their next scan. One Action input change: the runner's proxy variables (`HTTPS_PROXY` and similar) are now passed into the scan container.
+
+### Request input passed from an inline route handler to a helper
+- **Request input handed from an inline route handler to a helper function is now reported.** Arrow functions, `async` arrows and `function` expressions are followed the same way as named handlers, with the helper in the same file or imported from another. A handler that passes the helper a constant is not reported. Expect new findings on Express-style applications that route through inline handlers.
+
+### A directory name no longer hides code the application imports
+- **Code under a test-looking directory that the application imports is scanned as application code.** Findings were previously not reported for files under `mocks/`, `fixtures/`, `__mocks__/`, `testdata/`, `e2e/`, `cypress/` or `storybook/`. When a file that ships imports such a file, its findings are now reported and each names the importing file. Code imported only by tests, a test runner's configuration or an example is still treated as test code. Expect new findings where application code imports from such a directory.
+
+### Request input through call and callee spellings
+- **A flow through a helper in another file is graded like the same flow in one file.** Request input reaching a command-execution or deserialization sink through an imported helper was `major`; it is now `critical`, as it already was within one file. No finding is graded lower than before, and a scan that gates on critical findings will now fail on these.
+- **Call spellings are followed across files.** `fn.call(…)`, `fn.apply(…)`, a `bind` alias of an imported function, a callback handed to an imported helper, a helper that reads `arguments[n]` and a helper that destructures its options parameter are now reported, with every line of the flow on the finding. JavaScript and TypeScript.
+- **An HTTP-client call inside a helper is judged on its destination.** A request value that only fills the body or options of a request to a fixed destination is no longer reported as request forgery. When the helper takes the destination as a parameter, the finding keeps its grade and says the tainted argument does not reach the destination.
+- **Values handed to inline callbacks are followed.** A helper that calls its callback with request data, or passes its own argument on to the callback, is reported when the callback's parameter reaches a sink. The "does not appear to reach this sink" note is now accurate when a parameter is copied into another one; the grade was already unchanged.
+
+### Every pattern in a file is listed
+- **Every line that matches the same pattern rule is listed.** Two weak hashes, or two string-built queries of the same shape, in one file used to show the first line only. Each matching line is now listed on the finding (up to 50 per rule per file), and the grade is unchanged.
+- **A file with more than one kind of injection pattern lists each of them.** The SQL, command-injection, path-traversal, SSRF, prototype-pollution and deserialization checks reported only the first kind found in a file. The finding now takes the strongest grade among the listed lines; finding counts per file do not change, but the listed lines can.
+
+### Weak ciphers and ECB mode
+- **Weak ciphers and ECB mode are now reported by their API call in five languages.** This covers Node, Java (including `Cipher.getInstance("AES")`, which defaults to ECB), Python, Go and C#. Authenticated modes (GCM, ChaCha20-Poly1305) and text that only mentions an algorithm are not reported. Expect new `insecure_crypto` findings.
+- **A weak hash no longer hides a weak cipher in the same file.** The weak-cryptography check reported only the first kind of weakness it found, so a file with an MD5 checksum and a DES or ECB cipher reported the checksum alone. Every kind found is now reported.
+
+### Grades are not lowered by what a file says about itself (continued)
+- **A JAX-RS route whose guard PullGuard only infers keeps its grade.** The finding names the inference so it can be checked, at the grade of an unguarded route. It was reported as minor.
+- **A secret whose key names a development service keeps its grade.** A credential under a key naming a local mail or cloud emulator is reported at the rule's grade (critical) with a note saying so; it was graded major. If you relied on that lower grade, triage those findings as acknowledged.
+- **A finding from an inline route handler names the line that reads the request**, not the helper's first line.
+
+### Weak cryptography in entry-point files
+- **Weak cryptography is now reported in entry-point and component files.** MD5 or SHA-1 password hashing, weak ciphers and similar were not reported in files named `server.js`, `index.js`, `app.js` or `main.py`, or under `components/` and `tools/`. The same applied to a secret that reaches an LLM prompt. Test files, fixtures, documentation, examples and scripts are still skipped. Expect new `insecure_crypto` findings.
+- **Pattern rules run on a fixture-path file that the application imports**, matching the directory-name change above.
+
+### Clearer findings from single-line rules
+- **XXE findings are now reported as `xxe_vulnerability` (CWE-611) instead of command injection.** A Java XML parser hardened in the same file is named on the finding, and the grade is unchanged because another parser in the file could still be unhardened.
+- **`yaml.load(..., Loader=SafeLoader)` is no longer reported** when the loader is exactly a safe loader. A bare `yaml.load`, any other loader or a conditional loader is still reported.
+- **Some findings now state why they may be benign, at full grade.** This covers shell `eval "$(tool init -)"` bootstraps, Go `exec.Command` calls without a shell, and JSON-P readers. `eval` of a network fetch, and Go programs that hand an argument to a shell or interpreter, get no such note.
+
+### Scans cannot be stalled by hostile input
+- **A custom rule's `files` / `exclude` glob in `.driftrc.yml` can no longer stall a scan.** A pull request can change that file, and a glob with many wildcards could take exponential time on a long file name. Globs now match in time proportional to their length, with the same meaning.
+- **Three checks that read scanned code no longer slow down sharply on crafted long lines.** Results are unchanged; a calibration proof facing a declaration line too long to read safely is reported as not run rather than guessed.
+- **Large repositories and minified bundles scan faster, with the same results.** A check stopped at its time budget loses its findings, so this is a completeness fix too.
+
+### C# output encoders in shared classes
+- **A request value passed through an HTML encoder declared in another C# file is no longer reported as cross-site scripting.** The encoder's namespace must be imported by, or enclose, the calling file, and a helper that returns its input unchanged is still reported.
+- **With `taint.calleePositionalProofs` on, the per-argument helper proof now covers C# and JavaScript too.** A call that passes a constant in a helper's returned position is no longer reported. Off by default, as before.
+- **Java: a proven output encoder in another file is also recognised** when the call names its package or goes through a local variable of a `final` encoder class. A different package, or a class that could be subclassed, is still reported.
+- **A value reassigned from a local that only ever holds constants is no longer reported as carrying request input.** Maven dependencies declared without a version under a Spring Boot parent or a Spring Boot / Quarkus BOM now take that platform version for vulnerability matching and the SBOM.
+
+### Java SQL injection through chained appends
+- **A value checked by a validator that throws on anything non-numeric is no longer reported when appended to a query.** A raw request value appended to the same query is still reported.
+- **Request input added to a query with chained `StringBuilder.append(...).append(...)` calls is now detected.** Previously only the first call in the chain was read.
+
+### Getting more from PullGuard
+- **`pullguard doctor` now lists the capabilities your repository uses** (baseline, SARIF upload, reviewed suppressions, SLA budgets, ownership routing, compliance frameworks, test coverage) and links the ones it does not.
+- **Documentation:** a new "Your first 30 days" guide on Getting Started, one page explaining agent access for local and server use, and every `scan` flag in the CLI reference. When your code calls an AI provider, the AI usage section mentions that AI-governance evidence tables are available as an opt-in.
+
+### Scripts, migrations and examples are checked
+- **Security pattern rules now run on code in `scripts/`, `bin/`, `migrations/`, `examples/` and `benchmark/` directories.** Test and fixture files are still excluded. An operational script that pipes a download into a shell, or a server started in debug mode on all interfaces, is now reported.
+- **YAML under a nested `infra/` directory is now checked for hardcoded secrets,** and C and C++ test files (`*_test.cc`) are treated like other test files. No file gets fewer checks than in 1.5.17.
+
+### Comments never add a finding
+- **Comments no longer decide the missing-security-headers check, in either direction.** A comment quoting `const app = express()` was reported as an Express app without security headers, and a commented-out `app.use(helmet())` counted as configured, hiding a real gap.
+- **A comment no longer produces a second finding** for hardcoded developer paths, insecure temp files, Java ReDoS, `@WebParameter` SQL concatenation, missing pagination, or cookie flags. Committed credentials in comments are still reported.
+
+### Java CMS sort keys
+- **Raw SQL run on a `SqlDatabase` held in a short variable (`db.selectFirst(sql)`) is now followed as a data flow,** including through a helper method that receives the SQL text. Previously only a concatenation on the same line was reported.
+- **A request value used as a sort key now says why it matters and how to fix it.** A sort key exposes an ordering oracle over fields the caller may not read; the fix is an allow-list of sort fields. The grade is unchanged, so a severity gate blocks exactly what it blocked before.
+
+### Which routes lead to a vulnerable dependency (more shapes)
+- **NestJS controller routes, Express handlers declared in the same file, and routes that reach a package through a service layer are now attributed.** A route reached through an intermediate module says so. A value that is not a function is no longer read as a handler. Display only.
+
+### Every matched advisory is listed
+- **A vulnerable-dependency finding now lists every matched advisory id** in `vulnPackage.advisoryIds` (bounded at 100). Previously only the first five were listed and the rest appeared only as a count, hiding some from automation. The five-entry `advisories` detail is unchanged.
+
+### Runners behind a proxy
+- **PullGuard now uses your HTTP(S) proxy.** Licence validation, the signed rules bundle, advisory lookups and the results upload previously connected directly even when `HTTPS_PROXY` was set. The image, the Action and the command line now honour `HTTPS_PROXY`, `HTTP_PROXY` and `NO_PROXY`; set `NODE_USE_ENV_PROXY=0` to opt out.
+
+### Engine
+- **A Java validator that throws on a non-numeric value is recognised however the `throw` is laid out.** Recognition no longer depends on the file's line endings.
+- **Faster callee analysis on Java.** Findings are unchanged.
+
+### Ownership routing
+- **The by-owner table now appears on the pull-request comment too** when `ownership.groupBy: owner` is set. It is collapsed, limited to the ten most urgent owners, and never uses `@`-mentions, so the comment notifies no one on each push.
+
+### Grades
+- **A category with a critical finding is never graded A.** The overall grade already could not be A with a critical present; a single category could. The category letter is now at most B in that case. No scores change.
+
+### Scan coverage
+- **A code file too large to read is now named, not silently skipped.** Code files over 500 KB are still not read, but the report records how many and which, and the PR comment and terminal name them. A scan-completeness attestation no longer certifies a scan that left a code file unread; oversize configuration and data files are recorded and do not affect it.
+
+### New-code coverage gate (JaCoCo)
+- **`coverage.newCodeMinimum` gates the lines a change adds or modifies.** Below the minimum, a `new_code_coverage_below_minimum` finding (major) is raised. A change that cannot be measured (no merge-base, an unreadable diff) is treated as not meeting the minimum, and changed source files the report does not cover are counted and shown.
+- **A pull request cannot relax the gate that judges it.** Lowering or removing the minimum, or changing the report path, in its own `.driftrc.yml` is held to the base branch; delta mode, `.pullguardignore`, the scan cache and a committed baseline do not remove the finding. Produce the coverage report in a workflow the change cannot alter.
+- **A pull request can no longer remove the settings that guard its own scan by deleting or renaming the configuration file.** Deleting `.driftrc.yml`, or adding a higher-precedence one beside a base branch's `.driftrc.yaml`, used to drop every guarded setting at once. The base branch's configuration is now found on its own and the change is held to it.
+
+### Test coverage from JaCoCo (report-only)
+- **PullGuard reads your JaCoCo report and states the line coverage.** Configure `coverage.reports`; the coverage appears in the report (`coverage`) and the PR comment. A report that cannot be used says why instead of showing a number, for example when it is outside the project, committed to the repository, too large, or XML with a DOCTYPE or ENTITY.
+- **lcov and Cobertura reports are read too** (Jest, nyc, c8, coverage.py, coverlet, gcovr and others), so the new-code minimum works for TypeScript, Python, .NET and C/C++ projects. `coverage.format` defaults to `auto`; naming a format enforces it.
+
+### Which routes lead to a vulnerable dependency
+- **A dependency CVE now says which HTTP routes lead to the code that uses the package, and whether those routes are guarded.** It covers Express/NestJS, Spring, Django, Flask and Rails, and each route carries the missing-authorization analysis's own verdict. It is file-level, so a single route is named only when the file declares exactly one.
+- **When no route connects, the finding says why** (package not imported, only tests import it, no cross-file resolution for the language yet, no route support for the framework, aliases not followed, or the search bound reached). It never says "unreachable", and the auth state is `unknown` when the route analysis did not run or finish.
+- **The routes that actually reference the vulnerable package are named first,** with a count of the routes not attributed. A route that is not attributed is never presented as unaffected.
+- **Java and Kotlin services, interfaces and controllers are connected, and Next.js, Go, path aliases and workspaces are covered.** Display only: it never changes a severity, a finding's identity or the gate, and Next.js and Go routes say "authentication state unknown" rather than "no guard". It appears on the PR comment, in the JSON report (`routeExposure`, `scaRouteExposure`) and in SARIF.
+
+### Missing-authorization precision
+- **An Express route whose URL names auth is no longer read as guarded.** The route's path, or a neighbouring route's path, never counts as a guard.
+- **Optional auth and auth-named routers no longer protect a whole file.** Real file-level guards such as `app.use(authentication)` still count, and a commented-out `app.use(auth)` no longer does.
+- **An Express route guarded by a camelCase auth middleware is no longer reported as unauthenticated,** for example `requireJwtAuth` or `jwtAuthGuard`. Optional or skipped auth, OAuth flows, token parsers and minters, and optional-mode factories stay reported.
+- **A security policy note no longer counts as a data-flow sink in the endpoint risk,** and a flow that ends in test code is reported as a minor naming the test file, not at full severity. A template-literal log message that merely mentions a token is no longer reported as logging one; a credential interpolated into the message still is.
+
+### Missing-authorization: chained and path-level Express registrations
+- **Routes registered as a chain are now checked.** `router.route('/items').get(listItems).post(createItem)` produced no route at all, so an unguarded chained endpoint was never reported. Each chained verb is judged on its own arguments.
+- **A path guarded with `router.all('/admin', requireAuth)` is no longer reported as unauthenticated** when a later route registers the same path. This applies only when every argument after the path is an authentication guard.
+
+### Taint path shows where the data came from and where it went
+- **A flow into a helper now points at the line the tainted argument actually reaches.** Each argument is matched to the parameter it binds, and the finding names the sink that parameter reaches. When the argument does not appear to reach the sink, or the call's arguments cannot be matched, the finding keeps its grade and says so.
+- **Java, C# and Go: a helper that builds its dangerous argument in a typed local is now followed across functions.** The same code written without the local was already reported.
+- **Cross-file: a value wrapped by a sanitizing helper inside the sink call is no longer reported.** A helper that escapes for a different class of vulnerability still does not clear the sink.
+- **The taint path on a finding now names its source and its sink** (for example `req.query.id` and `db.query`) in the PR comment, the HTML report, SARIF and the JSON report.
+
+### Install-time changes on every pull request (lockfiles)
+- **The install-time changes hidden in a pull request's lockfile are named on the pull request.** It covers `package-lock.json`, `npm-shrinkwrap.json`, `yarn.lock` and `pnpm-lock.yaml`, compared with the base branch. A new install script raises `lockfile_install_script_added`; a non-registry source, mismatched tarball, new registry host, new alias or plaintext `http` download raises `lockfile_source_changed`; a removed, weakened or different integrity hash raises `lockfile_integrity_changed` (all major, security, always surfaced). Upgrades, dedupes, re-sorting and format migrations are silent.
+- **Install configuration changes are review items.** Lifecycle scripts, `.npmrc`, `.yarnrc`, `pnpm-workspace.yaml`, pnpmfiles, yarn releases and plugins, pnpm build allowlists and package-replacing overrides raise `install_hook_changed` (major when the setting redirects downloads or runs code, minor otherwise). Setting names are shown, never values.
+- **It fails closed.** A changed lockfile that cannot be compared raises `lockfile_unverified`, and `exclude` and `.gitignore` cannot hide a lockfile. Pro tier and above, and the base branch must be in the checkout (`fetch-depth: 0`); see [/docs/lockfile-diff](https://pullguard.dev/docs/lockfile-diff).
+- **A new package whose name imitates a popular one is flagged, and Python, Ruby, Go and Gradle lockfiles are compared too.** This covers npm and PyPI look-alike names, and `uv.lock`, `poetry.lock`, `Gemfile.lock`, `go.sum` and `gradle/verification-metadata.xml`. Turning Gradle dependency verification off, or trusting more artifacts or keys, is a major install-configuration change.
+
+### Agent-capability changes on every pull request
+- **A pull request that widens what a coding agent may do is surfaced as a review item.** A new or redefined MCP server, a broader permission, a removed deny rule, a more permissive permission mode, `enableAllProjectMcpServers` turned on, or a new hook or folder-open task raises `agent_capability_widened` (major, security, always surfaced). An edited instruction file raises `agent_instruction_changed` (minor).
+- **A comparison that cannot be made is itself the finding,** and an excluded or ignored agent file is still compared. Commands are recorded as hashes only, and the base branch must be in the checkout (`fetch-depth: 0`).
+- **Agent and MCP configuration saved with a UTF-8 byte-order mark is now read.** Previously a backdoored `.mcp.json` saved that way produced no finding.
+
+### Exploit witnesses (Java)
+- **A Java taint finding now names the request that reaches it.** It gives the method, route, HTTP parameter name and an inert marker to look for at the sink. When none can be derived the finding says why, and it is still reported; the witness never changes severity or the gate.
+- **Witnesses cover JAX-RS resources and `web.xml` servlets.** A URL is shown only when it is exact; when the scan cannot see exactly one readable application path, the witness says the path is unknown.
+- **A JAX-RS form field, header or cookie flowing into command execution is now graded critical,** like its Spring and servlet equivalents. It was major because of the framework's spelling.
+- **The missing-authorization check reads Spring controllers the same way however they are formatted.** Next-line paths, `path = "/x"`, wrapped guard arguments, comment blocks and a far-above class-level guard no longer change the verdict, and a path-less `@GetMapping` handler is now checked.
+
+### Scan-completeness attestation
+- **Every scan now writes a verifiable record of what it actually looked at.** `pullguard-scan-attestation.predicate.json`, plus an unsigned in-toto statement, sits beside `pullguard-report.json`. It records the files read, analyzers that ran or did not finish, the source of the zero-day rules, the age of the vulnerability data and the SHA-256 of the exact report.
+- **The completeness verdict is strict and lists its reasons.** A scan is not complete after a truncated or failed read, an unfinished analyzer, a degraded engine, missing or stale vulnerability data, an unrecorded commit, a tier that does not run the security analyzers, or a pull-request configuration that could not be checked against the base branch. It proves the scan was complete, not that the code is free of vulnerabilities.
+- **Your workflow signs it; PullGuard never does.** Add `actions/attest@v4` after the scan and verify with `gh attestation verify`, pinning the signer as the docs show. New commands: `pullguard attest build`, and `pullguard attest check`, which exits `1` on any mismatch and, with `--require-complete`, `3` when the scan was not complete; `--expect-commit <sha>` and `--expect-image-ref <ref>` fail unless the scan matches.
+- **The attested commit is the one on disk, and a vulnerability database with an unreadable or future date is now treated as stale.** A tree that is not the recorded commit, or a scan of only a subdirectory, is not complete. Previously such a database counted as fresh, so the online supplement did not run.
+
+### Java: every annotated request parameter is a source
+- **A Spring handler's second `@RequestParam` (or `@PathVariable`, `@RequestHeader`, …) on the same line is now treated as user input.** Only the first annotation on a signature line was bound, so an injection through the second parameter reported nothing. Expect new findings on handlers with several annotated parameters on one line.
+
+### Fewer false positives (opt-in) and a stricter pull-request guard
+- **Declare a sanitizer for specific vulnerability classes with `taint.scopedSanitizers`.** A matching call makes a value safe for the listed classes only, so the same value written into HTML is still reported as XSS. It is applied where PullGuard follows data inside a function; cross-function and cross-file analysis uses the built-in sanitizers only. Invalid entries are refused when the configuration loads, and a pull request that adds or widens an entry is scanned without it until merged.
+- **A sanitizer now clears only the values that pass through it.** In an expression such as `encodeURIComponent(a) + b`, a value already cleaned could make the whole result clean, so injection through `a` went unreported. These flows are now reported.
+- **Python keyword arguments are no longer read as assignments.** This removes a false positive on constant commands and a missed injection where only a quoted copy was passed as a keyword argument.
+- **A destination that is provably narrowed is now named on SSRF findings.** This covers a URL literal that fixes scheme and host, and a URL checked against a constant allowlist. The grade is unchanged by default; `taint.ssrfNarrowedDestinations: downrank` lowers them one step.
+- **A pull request can no longer relax its own scan through three more settings.** `taint.ssrfNarrowedDestinations: downrank`, `taint.calleePositionalProofs: true` and `sqlInjection.patternSeverity: major` added in a diff are not applied until merged, and the scan notes which one it held back. Documentation correction: `taint.sanitizers` clears flows into the custom sinks you declare, not built-in findings, and never has.
+
+### What upgrading a vulnerable dependency involves
+- **A dependency CVE now says whether its fix is on the release line you run.** The lowest version that fixes every advisory on the finding is named and labelled as on your line, a new major, or not published for at least one advisory. It appears on the PR comment, in the JSON report (`upgrade`) and in SARIF.
+- **The lines that use the package are listed, production code first** (up to 20, with an exact count). It never says an upgrade is "safe"; it tells you what to re-test. Display only: it never changes a severity, a finding's identity or the gate.
+
+### JavaScript and Python: taint across files through renamed imports
+- **A flow into a function imported under another name is now reported.** This covers renamed, default and namespace imports, renamed CommonJS destructuring and Python `from .svc import run as r`. An anonymous default export is never matched to another function.
+- **JavaScript / TypeScript: a flow through a barrel file is now followed.** Re-exports are followed up to four files deep, and a name provided by two `export *` sources is not guessed. `export * as ns from`, type-only re-exports and CommonJS barrels are not followed yet.
+- **Unused-export and breaking-change checks now read the exported name of a renamed import.** A Python relative import no longer counts the module's own name as an imported symbol.
+
+### Server-side request forgery: Spring WebClient written across lines
+- **A Spring `WebClient` / `RestClient` call formatted across lines is now checked for server-side request forgery,** like the same call written on one line. A fixed URL template with the request value only as a path variable is still not reported.
+
+### C#: ASP.NET Core request data
+- **Request data read through ASP.NET Core is now tracked.** `Request.Query`, `Request.Headers`, `Request.Cookies`, `Request.RouteValues` and `Request.Body`, also through `HttpContext.Request` or a minimal-API request, were not recognised as user input. Expect new findings on ASP.NET Core applications.
+- **A C# request value that reaches a command is graded like every other language.** It was graded major instead of critical, so a scan gating on critical findings will now fail on these.
+
+### Java: taint across files
+- **A Java flow that crosses into another file is now reported.** This covers an injected service, an instance built with `new`, a static utility call, a helper that returns request input to a sink in the caller, and a fully qualified class. Only a flow that reaches an actual sink is reported, and a call through an interface reaches its implementation only when exactly one class implements it. Expect new findings on Spring-style applications.
+- **A flow already reported inside one file is not reported again across files,** and two dependent calls on the same input are one finding. The second call stays as a minor pointing at the first finding; a second call that uses the input itself is still its own full-grade finding.
+- **Java and C#: a call to an overloaded method is matched to the overload it calls,** by argument count. Where that cannot decide, the previous behaviour applies, and a changed match keeps the previously reported row with a note rather than dropping it.
+- **LDAP and XPath injection found across functions or files is labelled as such** instead of command injection, and a value returned from another file and then escaped by a helper in the calling file is no longer reported when the helper covers the sink's kind. The latter applies to Java, JavaScript and C#.
+
+### Server-side request forgery through Spring and Java HTTP clients
+- **A request value used as the destination of a Spring `RestTemplate`, `WebClient` or `RestClient` call, or of a `java.net.http` request, is now reported as SSRF.** Only the destination counts: a fixed host with the value as a template variable, body or header is not reported.
+- **A fully qualified request annotation is a taint source like the imported one,** so a flow from a parameter annotated that way is now reported at the same severity. A Java string literal no longer counts as a use of a variable it merely names.
+
+### Missing authorization on JAX-RS endpoints
+- **An unguarded JAX-RS resource method is now reported as `missing_auth_check`.** The check credits `@RolesAllowed` and `@DenyAll`, a `web.xml` security constraint that requires a role, a global request filter that rejects requests without a valid credential, name-bound filters, and `@Authenticated` or `@Auth`. `@PermitAll` is treated as public by design and is not reported.
+- **A first-statement role check, a registered filter and a filter-free application are judged accurately.** A role check that rejects as the method's first statement guards it; a filter registered by the application class counts; a `@Provider` filter an application does not list no longer counts. Test-only applications or filters never guard production code.
+- **JAX-RS sub-resources are now checked,** when exactly one locator returns them. When the locator rejects unauthorised callers first, the endpoint is reported as a minor naming the locator.
+- **Protection PullGuard has to infer is shown, not trusted silently.** A `web.xml` in a web root, a module-wide Spring Boot authentication requirement, or a `web.xml` in a packaging WAR lowers the finding to a minor naming where the protection was inferred from; it is never removed. A role check whose role is chosen by the caller is reported as a minor that says why.
+
+### Agent-capability review on pull requests
+- **Four more ways a pull request could change what a coding agent may do are now reported:** renaming an agent settings file inside a linked configuration directory, a Windows short-name path that writes into `.claude` on checkout, a file that is agent configuration in another letter case, and a change to a script a hook runs or a file an instruction file imports. The review needs `fetch-depth: 0`; without it the report says no comparison was made.
+- **A file whose name imitates agent configuration with look-alike letters is now reviewed as the agent file it imitates.**
+
+### Cross-site scripting in Flask and Django responses
+- **Request input returned inside an HTML body through Flask `make_response(...)` or Django `HttpResponse(...)` is now reported.** An escaped value, a template render, a JSON response, a header-only value and a non-HTML `content_type` or `mimetype` are not. Expect new `xss` findings.
+- **The same applies when a helper function builds the response,** and the finding points at the response line in the helper.
+
+### Fewer false positives when a helper sanitizes at the sink
+- **A value sanitized on the line where a helper function uses it is no longer reported as reaching that sink through the call.** For example, a helper that writes an HTML-escaped value into `innerHTML`, or runs a command built with `shlex.quote`, was reported up to critical. The sanitizer must fit the vulnerability class: HTML escaping inside a shell command is still reported.
+
+### Missing authorization: Spring mappings written after `method =`, and implemented interfaces
+- **A Spring handler whose path is written after another argument is now checked for a missing authorization guard.** `@RequestMapping(method = RequestMethod.GET, value = "/owners")`, also what OpenAPI generators emit, was not read as a route.
+- **A controller that implements an interface holding its mappings now has each handler checked on its own,** with the interface's path and the handler's own guard. The interface itself is no longer reported as an unguarded route once an implementing controller is found.
+
+### Scanner dependency security update
+- **The YAML parser the scanner uses is updated (`js-yaml` 4.3.2).** The previous version had two published high-severity advisories for quadratic CPU use on crafted YAML, which a pull request could supply in a configuration, workflow or manifest file to slow a scan.
+
+### Vulnerable dependencies in Kotlin
+- **Kotlin controllers now get a route answer for a vulnerable dependency.** A controller that calls a service using the package is connected to its routes, and each Kotlin handler, with a block or expression body, says whether it references the package.
+- **A Kotlin file that imports a vulnerable package under an alias now counts as using it,** including a call made through the alias.
+
+### VS Code MCP configuration in the composite checks
+- **A VS Code `.vscode/mcp.json` now counts toward the lethal-trifecta check and the MCP rug-pull baseline.** Previously a configuration that granted private data, untrusted content and a send channel never raised `agent_lethal_trifecta`, and a changed tool was never compared with its approved definition. Expect new findings where such a file exists.
+
+### Every inline route handler's flow is reported
+- **A second injectable route handler in the same file is no longer lost.** Two anonymous handlers with the same source and sink were treated as one flow, so the second never appeared as an occurrence, in SARIF or in flow-level views. Each is now reported.
+- **Two functions with the same name in one file each report their own flow.** Java overloads, or a function beside a same-named object or class method, previously reported only the last one's injection.
+
+### Prove a calibration before accepting it
+- **`pullguard calibrate prove` tests a server calibration proposal against your own code.** Give it the JSON from `GET /api/v1/repos/<repo>/calibrations` and a proposal id. It writes `pullguard-calibration-proof.json` and changes nothing else.
+- **A proof checks that the call behaves like a sanitizer for the dismissed flows.** It must silence enough of them to meet the proposal thresholds (5 sinks, 2 files, 2 reviewers), must not be a known pass-through, and must show its own vulnerability class going silent while other classes still fire. Every other finding it would clear or lower is listed as collateral.
+- **The result is "consistent", never "proven".** It does not verify that the call sanitizes; that is still the reviewers' judgement. Exit codes: `0` consistent, `1` rejected with reasons, `2` could not be proven.
+
+### Server (Enterprise)
+- **Action required if you set `PULLGUARD_SERVER_TRUST_PROXY` to a number.** A hop count (`1`) no longer starts the server, because a client reaching it directly could set `X-Forwarded-For` and choose the address that rate limits and the audit log see. Set it to your proxy's IP address or CIDR range instead (several allowed, comma-separated); the startup error names the replacement, and the AWS ECS (Pulumi) template now sets the VPC's range. An unrecognised value now prints a warning at startup and still means "do not trust the proxy header".
+- **Dependency security updates.** The web framework is updated to Fastify 5.12.5, and the SAML sign-in XML parser (`@xmldom/xmldom` 0.8.15), the URI parser (`fast-uri` 3.1.8) and the router (`find-my-way` 9.9.0) are updated, fixing published high-severity advisories in the versions shipped before. Every release now checks the runtime dependencies of everything it ships and stops on any known advisory.
+- **The Helm chart deploys the server version it ships with, not `latest`.** The default image tag is now the chart's own version (0.4.5); set `image.tag` to run another.
+- **New: rule precision from your own triage.** The triage page and `GET /api/v1/repos/<repo>/rule-precision` show, per rule, the findings tracked, how many carry a current decision and how many were marked false positive. It is an observed ratio, not a measured precision. Above 50,000 tracked findings the API returns `truncated: true`, and a decision voided by a change to the finding is no longer counted.
+- **Proposed calibrations, read-only and unproven.** When your team repeatedly dismisses the same kind of taint finding as a false positive, the server groups those decisions into a proposed calibration; it needs at least 5 dismissed sinks in 2 files from 2 signed-in reviewers on the protected branch. A proposal changes nothing and is not a gate input. It is shown on the triage page and at `GET /api/v1/repos/<repo>/calibrations`, and carries keys, locations and counts, never comments or reviewer identities.
+- **Choose the branch calibration reads.** A repository whose protected branch is not `main` or `master` can name it with `POST /api/v1/settings/repos/<repo>/calibration-branch`. Administrators only, signed in, and audited; `null` resets.
+- **Accept a calibration proof.** `POST /api/v1/repos/<repo>/calibrations/<proposalId>/accept` with the proof from `pullguard calibrate prove` records an administrator's recommendation and returns the `.driftrc.yml` entry to propose in a pull request. It changes no scan until that pull request merges. An edited proof, another repository's scan, a pull-request scan, a basis older than 30 days or a withdrawn dismissal is refused; accepting the same proof twice stores it once, a proposal ranked past the 50 shown can be accepted, and the acceptance is audited.
+- **A scoped read token can now read triage decisions.** `GET /api/v1/repos/<repo>/triage` accepts a managed `read` token for repositories inside its scope; the unscoped environment read token is still refused. A request outside the scope is refused with `403` and audited, and refused reads on the rule-precision and calibration routes are now audited too.
+- **Triage writes are more forgiving and stricter in the right places.** A write that sends its CSRF token in a `csrf` body field is accepted again, and `reason` is accepted as the same field as `comment`. An unknown field in the body is now refused with the list of allowed fields instead of being ignored.
+- **Triage fixes.** A decision on a finding without a rule id no longer fails and is treated as always surfaced, so it needs a reason. An out-of-team-scope write is refused with `403` without also logging a server error, and a database that already holds duplicate calibration acceptances starts normally, keeps every row, and logs how many groups need resolving.
+
+---
+
 ## [1.5.17] — 2026-09-25
 
 > **Ships with server 0.4.4** (self-hosted Enterprise server). No Action input changes: `@v1` users get the new
