@@ -169,6 +169,20 @@ runs:
         # comment entirely. Caught by E2E: PR #4 merged clean but the
         # fixture-repo scan logged "PR comment skipped — could not read
         # event payload: ENOENT '/workspace/.github-event.json'".
+        # STATEWRITE-02 (2026-10-16): the three files this step exchanges with the container live INSIDE the
+        # checkout, which a pull request controls. A pre-committed `.github-output` would be concatenated into
+        # the step outputs below, a `.step-summary.md` into the job summary, a `.github-event.json` directory
+        # would swallow the event payload, and a symbolic link under any of the names would make the copy or the
+        # container's append write THROUGH it. Nothing the repository commits under these names is ever read back:
+        # a directory or a link fails the run with a named reason (never silently), a regular file is removed.
+        for f in .github-event.json .step-summary.md .github-output; do
+          p="${{ github.workspace }}/$f"
+          if [ -L "$p" ] || [ -d "$p" ]; then
+            echo "::error::PullGuard refuses to run: '$f' exists in the checkout as a symbolic link or directory. These names are written by the scan and must not be committed." >&2
+            exit 1
+          fi
+          rm -f "$p"
+        done
         if [ -n "${GITHUB_EVENT_PATH:-}" ] && [ -f "${GITHUB_EVENT_PATH}" ]; then
           cp "${GITHUB_EVENT_PATH}" "${{ github.workspace }}/.github-event.json"
         fi
@@ -192,6 +206,9 @@ runs:
           -e GITHUB_STEP_SUMMARY="/workspace/.step-summary.md" \
           -e GITHUB_OUTPUT="/workspace/.github-output" \
           -e GITHUB_WORKSPACE="/workspace" \
+          -e GITHUB_BASE_REF="${{ github.base_ref }}" \
+          -e GITHUB_ACTIONS=true \
+          -e PULLGUARD_OFFLINE -e PULLGUARD_ANALYZER_TIMEOUT_MS -e PULLGUARD_SCAN_TIMEOUT_MS \
           -e PULLGUARD_LICENSE_KEY \
           -e PULLGUARD_FAIL_SEVERITY="${PULLGUARD_FAIL_SEVERITY}" \
           -e PULLGUARD_HOURLY_RATE="${PULLGUARD_HOURLY_RATE}" \
@@ -218,7 +235,10 @@ runs:
 
     - name: Upload report artifact
       if: always()
-      uses: actions/upload-artifact@v4
+      # WHY: pinned to a commit SHA, as every workflow in this repository is — a tag can be moved by the action's
+      # owner, and this step runs inside every customer's job. Found by our own dogfood scan once composite actions
+      # were checked (COMPOSITEACTION-01); same SHA as the workflows' upload-artifact pin.
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: pullguard-report
         # WHY: The entrypoint writes pullguard-report.{json,md} inside
