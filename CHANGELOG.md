@@ -14,6 +14,7 @@ Live release notes for the hosted scanner: [pullguard.dev](https://www.pullguard
 > the `:1` image tag, so `@v1` users get the fixed scanner on their next scan.
 
 ### Performance: large Java repositories scan at full speed again
+<!-- covers: Performance: large Java repositories scan at 1.5.18 speed again -->
 - **1.5.19 could take far longer than 1.5.18 on a large Java repository, and then stop some analyzers before they
   finished.** On the largest Java codebases a scan could run past the analysis time budget, and complexity, dead-code,
   performance, type-coverage and architecture results were then missing (the report said so, as an incomplete scan).
