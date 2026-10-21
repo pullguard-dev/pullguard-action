@@ -12,6 +12,101 @@ _Customer-visible changes already live on `:latest` but not yet bundled into a c
 
 ---
 
+## [1.5.19] — 2026-10-20
+
+> **No server release:** server 0.4.5 stays current. The Action's `image-pin` default rides the `:1` image tag, so `@v1` users get the new scanner on their next scan. **Action changes:** the scan now uses the vulnerability database shipped in the image; `PULLGUARD_OFFLINE`, `PULLGUARD_ANALYZER_TIMEOUT_MS`, `PULLGUARD_SCAN_TIMEOUT_MS` and the pull request's base branch reach the scan; the Action refuses pre-committed workspace exchange files; and every step it runs is pinned to a commit SHA. **Upgrade recommended for every Action and CLI user** (see the first security item below).
+
+### Verify-fix and scan coverage
+- **`verify-fix` no longer says "fixed" when its re-scan did not read the whole project.** A re-scan that hit a read or file limit, could not read part of the tree, had an analyzer stop early or ran without its analysis engine now answers "unavailable" and names the cause. A complete re-scan answers as before.
+- **A folder PullGuard cannot list is reported instead of being skipped silently**, counted as lost coverage, and the scan-completeness attestation will not certify that scan.
+
+### Security: a scanned repository can no longer make PullGuard write outside it
+- **PullGuard never writes a file through a symbolic link the scanned repository contains.** In 1.5.18 and earlier a repository could commit one of PullGuard's state or report files as a link, and a scan (in CI, the Action) overwrote the file the link pointed to. Such a link is now left untouched and reported; state files, `.pullguardignore` and lockfiles are no longer read through a link either, and a `.pullguardignore` that is a link suppresses nothing.
+
+### Security: the GitHub Action uses the image's vulnerability database and honours the air-gap switch
+- **The Action checks dependencies against the vulnerability database shipped in the image.** In 1.5.15 through 1.5.18 an Action run that could not reach the advisory service (an air-gapped runner, or `PULLGUARD_OFFLINE=true`) reported no CVEs at all. Using the shipped database adds a few seconds to a scan on a GitHub-hosted runner; findings are the same.
+- **`PULLGUARD_OFFLINE`, `PULLGUARD_ANALYZER_TIMEOUT_MS`, `PULLGUARD_SCAN_TIMEOUT_MS` and the base branch reach the scan** when set as `env:` on the step; before, they were silently ignored inside the Action.
+- **The Action refuses to run when a pull request has committed one of its workspace exchange files as a link or a directory**, and removes a committed regular file first.
+
+### Security: composite actions are checked, and so is a download piped into a shell in CI
+- **Composite actions get the same step checks as workflows** (script injection, running checked-out code, unpinned nested actions, hardcoded secrets). They run on your runner with your token and were not checked before.
+- **New finding `workflow_remote_script_exec` (moderate): a step that pipes a download into an interpreter** (`curl … | bash`, `wget … | sh`, `iwr … | iex`), including commands continued across lines. The finding names each host as written in the command (not verified as the host actually fetched) and marks anything that can redirect the download. It counts as evidence for SOC 2 CC6.8, and for HIPAA 164.312(c)(1) and ISO 27001 A.8.9 when those frameworks are enabled. A workflow or action file that cannot be parsed is reported as not fully checked instead of clean. **Expect new findings.**
+- **Common installer spellings are recognised everywhere this pattern is used** (CI, agent hooks and tasks, MCP commands, lifecycle scripts): `| sudo bash`, `| env bash`, `| python3`, `| zsh`, PowerShell `irm … | iex`, and long lines. This only adds findings.
+- **PullGuard's own Action pins every step to a commit SHA.**
+
+### Fewer false secrets in configuration files, with no grade lowered
+- **An unquoted YAML `true` / `false` / `null` / `~` under a password-shaped key is no longer reported as a secret.** Quoted values, values with more text, and every other secret are reported as before.
+- **A high-entropy value that decodes from base64 to JSON keeps its grade and says what it decodes to**, showing key names only.
+
+### Large repositories: the files scanned are the ones that matter
+- **When a repository has more files than the collection limit, agent, workflow and infrastructure files are collected first, then code**, with a share kept for configuration; padding a repository can only push out files of the same kind in the same place, and code always keeps at least 30% of the limit. Any security-relevant file a limit pushed out is named in the report, the PR comment and the terminal, and the attestation will not certify that scan.
+- **More of the files CI systems, agents and dev tooling load are scanned**: other CI systems' pipelines (GitLab, CircleCI, Azure Pipelines, Buildkite, Travis, Drone, Woodpecker), files that run commands automatically (`.envrc`, git hooks, `.gitpod.yml`, `.mise.toml`, `.yarnrc.yml`, lefthook), executable tool configs, and other agent tools' rules and MCP settings (Windsurf, Roo, Continue, Kiro, Gemini, Amazon Q, Zed, Cline). The existing rules now apply to them. **Expect new findings.** CI secret-store references (`from_secret:` in Drone / Woodpecker) are not reported as secrets.
+- **A dependency-manifest search that reaches its bound now says so**, and the bound is five times larger.
+
+### Security: a test-looking folder name no longer lowers a finding's severity
+- **A dependency declared in a manifest under a test-looking folder keeps its advisory's severity** for Python, Java/Maven, Go and Ruby, as npm already did; the finding says where it was declared. **Some findings will show a higher severity than before.** Gradle test-only configurations are still shown one level lower.
+
+### Security: `verify-fix` answers "fixed" only from a scan that could have found the finding
+- **A re-scan at a lower licence tier, one that read no files, one without the zero-day rule catalogue, or one that could not read the finding's file (too large) cannot answer "fixed"**, in the CLI, the MCP server and server mode. The MCP server never replaces its report with a lower-tier re-scan.
+- **A dependency manifest on a single long line keeps its CVE findings**; it is no longer mistaken for generated code.
+
+### Security: an unreadable npm lockfile cannot hide a vulnerable install
+- **A `package-lock.json` that cannot be read is named on the finding**, and a package no lockfile lists is checked against every version its declared range allows (marked unresolved) instead of only the lowest one.
+
+### Security: dependencies in npm workspaces are checked at any depth
+- **A `package.json` anywhere in the repository is read**, including the standard `packages/*` and `apps/*` workspace layout, which earlier releases never checked. A version comes from the nearest lockfile only when it satisfies the declared range. **Expect new `known_cve` findings on JavaScript monorepos.**
+
+### Security: an agent, MCP, hook or workflow file can no longer be padded out of the scan
+- **These files are read up to 512 KB** (earlier releases skipped every non-code file over 100 KB, which hid everything in it from every rule). A larger file is reported as not read, and the attestation will not certify that scan.
+
+### A weak Content-Security-Policy beside a real XSS flow
+- **A weak CSP is no longer hidden by an XSS flow in the same file**, and a policy allowing inline script or `eval` raises that file's endpoint risk by one level. The Express security-headers finding names exactly the headers a file does not set.
+
+### Security: a file name cannot pass itself off as another file in a report
+- **Invisible and direction-changing characters in file paths are shown as visible markers** (such as `⟨U+202E⟩`) in the PR comment, step summary, HTML report, dashboards and terminal. The JSON report keeps the exact name.
+
+### Scans a file can no longer slow down
+- **Files of thousands of blank lines and workflows with thousands of jobs are checked in time proportional to their size.** Job-level workflow findings now name each job's own line.
+
+### Smaller accuracy fixes
+- **A request value pushed or copied into the object a helper sends a request to is traced to it.** Known limitation: when a helper sends to an address held in another parameter and a request value only fills the body, the flow can still be reported as SSRF at full grade, with a note that the value does not appear to reach the address.
+- **A no-op helper with a sanitizer's name no longer silences a finding** (`function escapeHtml(s) { return s; }`, `const escapeHtml = (s) => s`); a real escaper still clears it. The same no-op written as a function expression is planned for a later release.
+- **A pull request can no longer reset a finding's age** by editing the committed history file; ages are the earliest of the branch's and the base branch's.
+- **A dependency manifest skipped by directory name (`build`, `dist`, `vendor` …) is reported as one minor finding naming the directory.**
+- **Comments never contribute to a security verdict**, in either direction: a comment can no longer create, keep or silence a finding.
+- **Smaller fixes:** files the scan cannot examine count as missing coverage; files that start with blank lines report findings at the right lines; faster lockfile resolution in large linked monorepos; `stale_dependency` names the manifest that declares the dependency.
+
+### One shape, one verdict — in one method or through a helper
+- **The same code gets the same verdict whether it is written in one method or through a helper.** A URL that is only parsed is minor, not graded like a fetch; a predicate built through a helper is reported as SQL injection, and a `?`-bound or UUID-converted value is not reported; a helper that commits its response to JSON, XML, plain text or CSV is not reported as XSS.
+
+### Corrections to 1.5.18 (found by independent review of the released build)
+- **A commented-out, branch-only or late JSON content type no longer suppresses a real HTML reflection** in Java.
+- **`fn.call(…)` / `fn.apply(…)` on a member receiver is followed** (`child_process.exec.call(null, cmd)`), as 1.5.18 already did for a bare function.
+
+### Request input the engine did not see
+- **Typed assignments are followed** (`const q: string = req.query.q`, `cmd: str = request.args["cmd"]`) into helpers and other files, as untyped ones were.
+- **Fastify, Koa, Hono, Next.js app router, FastAPI, Gin / Echo and ASP.NET Core minimal-API handlers are request sources**, and these flows (and Go's) are graded critical like every other language's. **Expect new findings**; no finding is graded lower.
+- **Request input passed through a chain of helpers is followed to its sink**, within one file and across files, with the request line and the sink line on the finding. A finding reached only through helpers says its chain is one path the analysis followed; the source and sink lines are always exact.
+- **A pull request can no longer narrow its own scan through a `.driftrc.yml` it adds or changes.** On a change under review (a pull request, a merge queue, a scan given a base branch) the change's configuration is compared against the base branch's, so excludes, caps and sanitizers it adds do not apply to itself. Push builds and local scans use the committed configuration, as before.
+- **A pull request into a branch other than `main` is compared against that branch**, not against `main`.
+- **Fewer false flows:** a response writer is no longer mistaken for the data written to it, and a request field that is assigned to is no longer treated as read.
+- **A higher-grade flow into a function is no longer hidden by a weaker one**, so some findings move from `major` to `critical` and reappear once against an existing baseline.
+- **`new Helper().run(input)` across files is followed** like `Helper.run(input)`.
+- **Two cross-file flows from one file into two different sink files are two findings.** A cross-file finding's fingerprint now includes its sink's file, so after upgrading a baseline or ignore entry for a cross-file finding may need recording again, and SARIF alerts for those findings reopen once. Finding ages carry over.
+- **`verify-fix` never answers "fixed" while a related cross-file flow still fires.**
+
+### Hidden characters outside comments
+- **Bidirectional controls in code and string literals are reported** (Trojan Source, CVE-2021-42574), and YAML, JSON, TOML, XML and properties files are inspected too. The England, Scotland and Wales flag emoji are not reported as hidden text.
+
+### Dependency and tooling
+- **A Maven dependency whose version is managed outside the repository says the shipping version is unknown** and how to check it, at the advisory's own severity.
+- **A directory `exclude` excludes that directory from the dependency-manifest search, not its top-level parent.**
+- **An aliased npm install (`npm:lodash@…`) is matched against the real package's advisories.**
+- **The MCP `export_report` tool refuses a destination that crosses a link** and never overwrites an existing file unless asked.
+
+### Measurement and process (no customer-visible change)
+- Release benchmarks refuse any measurement that could not have seen what it claims to measure (wrong tier, a missing analyzer, an incomplete scan or a degraded engine), and the release battery fails when a structural hardening check is missing.
+
 ## [1.5.18] — 2026-10-06
 
 > **Ships with server 0.4.5** (self-hosted Enterprise server). The Action's `image-pin` default rides the `:1` image tag, so `@v1` users get the new scanner on their next scan. One Action input change: the runner's proxy variables (`HTTPS_PROXY` and similar) are now passed into the scan container.
