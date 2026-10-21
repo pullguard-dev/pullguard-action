@@ -8,6 +8,22 @@ Live release notes for the hosted scanner: [pullguard.dev](https://www.pullguard
 
 ## [Unreleased]
 
+## [1.5.20] — 2026-10-21
+
+> **Hotfix. No server release:** server 0.4.5 stays current. **No Action change:** the Action's `image-pin` default rides
+> the `:1` image tag, so `@v1` users get the fixed scanner on their next scan.
+
+### Performance: large Java repositories scan at full speed again
+- **1.5.19 could take far longer than 1.5.18 on a large Java repository, and then stop some analyzers before they
+  finished.** On the largest Java codebases a scan could run past the analysis time budget, and complexity, dead-code,
+  performance, type-coverage and architecture results were then missing (the report said so, as an incomplete scan).
+  Smaller repositories were not affected. 1.5.20 removes the slowdown; findings are unchanged.
+- **Measured on two large public Java repositories:** a 7,392-file repository went from 1,035 s on 1.5.19 to 369 s
+  (1.5.18: 477 s), and an 11,014-file repository from 2,092 s to 323 s (1.5.18: 524 s), with every analyzer completing
+  and the same findings as 1.5.19.
+- **What changes for you:** large Java scans finish inside the budget again with complete results. If you raised
+  `PULLGUARD_SCAN_TIMEOUT_MS` to work around 1.5.19, you can set it back.
+
 _Customer-visible changes already live on `:latest` but not yet bundled into a cut image tag. Pin a specific release below for reproducible scans._
 
 ---
