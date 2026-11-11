@@ -79,6 +79,10 @@ inputs:
     description: 'When true, enforce the Quality Gate your organisation administers on its self-hosted PullGuard server: the scan uploads results, the server evaluates the gate assigned to this repo, and this step exits non-zero when the gate does not pass — mark the check required in your branch-protection rules to make it a merge gate. Requires server-url + server-token. Fails CLOSED: if no verdict can be obtained (server unreachable / bad token), the step fails rather than silently passing. Independent of fail-on-severity, which always remains a floor a gate cannot weaken. Default: false.'
     required: false
     default: 'false'
+  allow-incomplete-security:
+    description: 'Default false. When this step is a gate (fail-on-severity or gate is set) and a SECURITY analyzer did not complete (timed out, stopped on a file, or its vulnerability data was unreachable), the step FAILS: the findings are a lower bound, so the gate cannot honestly pass. Set true to accept the gap and let the gate judge only the findings that were produced. The incomplete-analysis warning is shown either way.'
+    required: false
+    default: 'false'
 
 outputs:
   score:
@@ -122,6 +126,7 @@ runs:
         PULLGUARD_UPDATE_BASELINE: ${{ inputs.update-baseline }}
         PULLGUARD_BLAME: ${{ inputs.blame }}
         PULLGUARD_GATE: ${{ inputs.gate }}
+        PULLGUARD_ALLOW_INCOMPLETE_SECURITY: ${{ inputs.allow-incomplete-security }}
       # WHY: Pull and run the Docker image directly. The entrypoint handles
       # everything: scan, step summary, PR comment, severity threshold, outputs.
       # Using docker run instead of container: directive gives us control over
@@ -223,6 +228,7 @@ runs:
           -e PULLGUARD_UPDATE_BASELINE="${PULLGUARD_UPDATE_BASELINE}" \
           -e PULLGUARD_BLAME="${PULLGUARD_BLAME}" \
           -e PULLGUARD_GATE="${PULLGUARD_GATE}" \
+          -e PULLGUARD_ALLOW_INCOMPLETE_SECURITY="${PULLGUARD_ALLOW_INCOMPLETE_SECURITY}" \
           "${IMAGE_REF}"
 
         # WHY: Copy outputs from container-written files to actual GitHub paths
