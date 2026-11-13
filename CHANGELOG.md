@@ -8,6 +8,134 @@ Live release notes for the hosted scanner: [pullguard.dev](https://www.pullguard
 
 ## [Unreleased]
 
+## [1.5.21] — 2026-11-11
+
+> **No server release in this version:** server 0.4.7 (released on its own on 2026-11-10) stays current. The Action's `image-pin` default rides the `:1` image tag, so `@v1` users get the new scanner on their next scan. **Action change:** a new input, `allow-incomplete-security`. **Read the first two sections before upgrading a gated pipeline:** a build that passed without a complete security result can now fail, and very large repositories will show more findings.
+
+### A gate no longer passes when a security check did not finish
+- **If a security analyzer stops before it has finished (a timeout, a file it could not complete, vulnerability data it could not reach), a gated run now fails.** Its findings are a lower bound. Until now the scan said so in the report and still passed. The command-line scan exits 1, and the Action fails the step when you use `fail-on-severity` or `gate`. The message names the analyzer and the reason.
+- **To accept the gap for a run**, use `--allow-incomplete-security` (or `PULLGUARD_ALLOW_INCOMPLETE_SECURITY=true`) on the command line, or `allow-incomplete-security: true` on the Action. It cannot be set in `.driftrc.yml`, so a pull request cannot switch it off for its own scan.
+- **Not affected:** an Action run without `fail-on-severity` or `gate`, an analyzer that is not a security analyzer, and a licence lookup that ran out of time.
+- **You may see a build fail that passed before.** That build was passing without a complete security result. Air-gapped command-line runs with no vulnerability database are the most likely case: add the database (`pullguard db update`) or use the published image, which carries it.
+
+### Very large repositories now get a complete security result
+<!-- covers: Large repositories: no lost analyzers from parser memory, and faster Java scans -->
+<!-- covers: Very large generated files can no longer use up the security analyzer's time -->
+- **On repositories of many thousands of files the security checks now run to completion.** They used to stop before the end, and the scan said they were incomplete. **Expect more findings on such a repository than 1.5.20 reported**, including false positives of kinds that already existed on smaller repositories; reducing those is the first work of the next release.
+- **On a large TypeScript repository, the security analyzer and seven others could fail without running.** Every analyzer now runs and no file is skipped.
+- **The time allowed for analysis grows with the size of the repository** (up to 20 minutes) instead of a fixed 8 minutes. Security checks run first and are not the ones cut short by the size-based budget. `PULLGUARD_SCAN_TIMEOUT_MS` still sets an explicit limit. The Action allows 28 minutes by default instead of 25, so a long scan still has time to write its report.
+- **One very large or generated source file can no longer use up the security analyzer's time.** The work one file can cost is bounded, the report names a file that reached the bound, and every other file is analysed as usual.
+- **Large Java, JavaScript and TypeScript repositories scan faster**, with identical findings.
+- **`.mjs`, `.cjs`, `.mts` and `.cts` files get the same security analysis as `.js` and `.ts` files.**
+- **TypeScript projects using ESM-style imports (`./cache.js` for `cache.ts`) get their cross-file findings**, and no longer see false "orphaned file" reports.
+- **A `build` folder that holds committed source is now scanned** (tracked files only). **Expect new findings** there. If you commit build output under `build`, add `build/**` to `exclude` in `.driftrc.yml`.
+- **Hotspot, high-churn and abandoned-directory findings now appear.** They were documented but never reported. They are moderate (a hotspot changed fewer than 20 times is minor), so they can change a score and count toward `fail-on-severity: moderate`.
+- **Dead-code reports are more accurate:** a function used through a re-export is counted as used, and text inside a template string is not reported as unreachable code.
+- **Circular imports are reported one finding per group, the same way every time.** Each finding's identity changes with this release, so a committed baseline or a fingerprint ignore will show existing circular imports as new once.
+- **`scan --baseline` no longer drops a finding that looks exactly like another one**, and a more accurate metric no longer makes an old quality finding "new" against your baseline. Regenerate your baseline (`pullguard scan --update-baseline`) to get this for every finding.
+- **Delta (pull request) mode shows the full report when it cannot tell what a change touched.**
+- **A cached scan (`--cache`) is not reused after an upgrade or after a clone gets deeper.**
+- **`PULLGUARD_OFFLINE` also stops Git from downloading from a partial clone.**
+- **Dockerfile base-image findings read the image Docker would actually use** when it comes from a build argument with a default.
+- **New diagnostic switch `PULLGUARD_PROFILE_STAGES=1`** prints the time each scan stage took (names and milliseconds only). Off by default.
+
+### A file with one very long line keeps its findings
+<!-- covers: Flows in files that look partly minified are no longer missed -->
+- **A pull request that adds a very long line to a source file can now fail a gated run.** Code on a line over 5,000 characters cannot be checked. When a pull request adds or changes such a line in a source file, the scan says its security result is incomplete and names the file. Split the line, or accept the gap with `--allow-incomplete-security`. Data files and files recognised as generated or vendored are not affected.
+- **A file with one very long line, or one that looks minified from its layout alone, keeps its multi-line flows.** A real flow elsewhere in such a file used to go unreported.
+- **A file with extremely deep nesting no longer ends the scan with an error and no report.**
+
+### The committed-secret history check always reads a pull request's own commits
+- **On a pull request, every commit of the change is checked for a secret that was committed and later removed**, however many commits it has. If those commits cannot be read (a shallow checkout, a very large change), the check says it did not finish. Check out with full history (`fetch-depth: 0`).
+- **Scanning a subdirectory of a repository now checks that directory's history**, and the report says when only part of the history could be seen (a shallow clone).
+
+### A pull request cannot weaken two more settings for its own scan
+<!-- covers: Suppression rules cannot hide the security analyzers -->
+<!-- covers: Identifier UUIDs in a tracked env file can be named -->
+- **Switching off the zero-day rules, lowering the history check's bounds, or disabling an analyzer in a pull request is held at the base branch's value while that pull request is scanned.** The scan says which setting it held. The change takes effect once merged.
+- **A suppression rule can no longer silence a security analyzer.**
+- **New opt-in option `analyzers."builtin/dangerous-files".options.envIdentifierKeys`** names the keys in a tracked `.env` that hold identifier UUIDs. A UUID under a listed key is kept as a minor finding instead of critical. Off by default; a key with a credential word in it stays critical, and a pull request cannot add an entry for its own scan.
+
+### Injections that were missed are reported
+<!-- covers: Java servlet responses are checked for cross-site scripting -->
+<!-- covers: More Java SQL injection found with dataflow evidence -->
+<!-- covers: A sanitizer's name written in a string no longer hides an injection -->
+<!-- covers: A command-injection finding is no longer graded by the code next to it -->
+<!-- covers: Shell and PowerShell scripts: more real findings, fewer false ones -->
+<!-- covers: Security coverage -->
+<!-- covers: Security: shipped files named like entry points or tool folders are checked again -->
+<!-- covers: Pulumi programs written in Java are checked -->
+<!-- covers: Some hostname-style regular expressions are reported as ReDoS again -->
+- **Expect new findings, some of them critical, on code that has not changed.** Each item below is a real flow that an earlier release missed or graded too low.
+- **Java servlet responses written through a writer variable or an output stream are checked for cross-site scripting**, as are `append(` and `format(` on a response writer.
+- **More Java SQL injection is found with dataflow evidence:** `prepareStatement`, `prepareCall`, Hibernate `createSQLQuery`, `addBatch`, JdbcTemplate obtained by a call, and queries split over several lines.
+- **Go handlers are checked whatever they name the request, the context or the response writer.**
+- **A command built from an array written across several lines is followed** (Java, C#, Go).
+- **A helper call with a function call in an earlier argument, a helper under an annotation or attribute, and a Go method with a receiver are followed.**
+- **A later read, a later escape, a comment, or text in a string that names a sanitizer can no longer hide a flow above it.**
+- **A critical command-injection finding is no longer graded lower because of another call on the same line.**
+- **Injection findings on shell and PowerShell lines that 1.5.13 to 1.5.20 missed are reported again.** Comments in fish scripts and PowerShell modules are read as comments.
+- **Five security checks no longer skip files named like entry points (`server.js`, `index.ts`, `app.py`, `*.config.*`) or folders such as `scripts/`, `tools/`, `deploy/` and `infra/`.** They skip test and fixture code only.
+- **Pulumi AWS resources written in Java are analysed** with the same policy as Terraform.
+- **A committed private key is no longer missed when the same file also parses PEM text.**
+- **Credential-bearing configuration files up to 512 KB are read** (they were skipped above 100 KB); a larger one is named as not read.
+- **A credential can no longer be hidden by an earlier copy of the same text or by an embedded image above it.**
+- **A regular-expression shortcut added in 1.5.18 is removed**, because it also skipped patterns that really are slow. A few patterns that are in fact safe may be reported as ReDoS again.
+- **A scan can no longer run commands named in a repository's own Git settings, and a workflow file can no longer stop a scan.**
+
+### A real key on a vendored file is no longer hidden by a weak value beside it
+<!-- covers: A comment above a credential can no longer hide it -->
+<!-- covers: A real key is no longer hidden by another copy of it -->
+<!-- covers: Later provider-format and high-entropy values are listed on the finding -->
+- **A provider key is reported even when a weak value, another copy of the key, or an unclosed quote in a comment sits near it.** A key in vendored code that was silent can now report.
+- **A secret finding lists the line of each later provider-format or high-entropy value in the file**, in the report, SARIF and check annotations.
+
+### Fewer false positives on Java codebases
+<!-- covers: Fewer false positives from values reset later in the code -->
+<!-- covers: Fewer false positives from helper methods and assignments -->
+<!-- covers: Fewer false alarms on React code -->
+- **A value reset to a constant before it is used is no longer reported** where the code shows the reset runs on every path (Python, Java, C#, JavaScript, TypeScript, Go).
+- **A helper that never uses the parameter it was given is no longer reported**, including helpers under an annotation, an attribute or a Go receiver, and helpers whose parameter types were read as parameters.
+- **A bound query argument, a typed request read (a number, a boolean, an id, a date) and a constant path are no longer reported as injection.**
+- **Reading the React `dangerouslySetInnerHTML` prop is no longer reported as cross-site scripting.** Writing it with untrusted data still is.
+- **A response declared as image, audio, video, font or archive content is not reported as cross-site scripting.** SVG still is.
+- **Fewer false secrets:** a configuration key whose value is its own name, an empty `password=`, and resource-bundle labels for "password" are not reported as critical secrets. A translated label is kept as a minor note.
+- **Fewer false timing-attack, developer-home-path, flaky-test and `document.write` findings** on the shapes customers reported.
+- **A command-injection pattern that matches only text inside a JavaScript string is reported one step lower, with a note saying why.** It keeps full severity when the file evaluates text.
+
+### Findings point at the right line
+<!-- covers: Finding descriptions read correctly -->
+<!-- covers: One finding is worded differently, so a baseline may show it once as new -->
+- **A cross-function finding for a URL that is only parsed points at the line that parses it.**
+- **The descriptions of tracked-sensitive-file findings and of agent instruction-file findings are reworded.** A committed baseline matches a security finding by its text, so every existing finding of these two kinds appears once as new after the upgrade, in the PR comment and its "new" count. They are the same findings at the same severity, and a `fail-on-severity` result does not change, because it already counted them. Regenerate your baseline (`pullguard scan --update-baseline`) to clear the label.
+
+### Reports, PR comments and the job log say what was scanned
+- **An incomplete scan's grade is marked PROVISIONAL everywhere**, the banner names why each analyzer did not finish, and the JSON report carries `gradeProvisional`.
+- **The PR comment keeps up with later pushes**, and source links name the commit whose files were scanned.
+- **The licence and tier line always reaches the Action's job log.**
+- **Uploads to the self-hosted server keep their GitHub links.**
+
+### Licence results say when a lookup did not answer
+<!-- covers: Licence reporting names the real cause -->
+<!-- covers: The retired licence-signing key is no longer accepted -->
+- **A licence verdict no longer changes silently with network timing.** A dataset that does not answer is asked again; if it still does not answer, the licence check is marked incomplete. A licence from a fallback dataset is marked as such and is never treated as allowed.
+- **The report gives the real cause when a component's licence was not resolved**, and your own modules can be excluded from licence verdicts with the opt-in `dependencies.licenses.firstParty`.
+- **PullGuard licence keys are signed by one authority.** An older authority kept for a single early key has been removed, as planned. Every key issued since April 2026 is unaffected.
+
+### Knowledge silos are reported
+- **The knowledge-silo check now works.** It reports source files one person has written almost alone. It needs the repository's history: use `fetch-depth: 0` in `actions/checkout`. A shallow checkout and a single-author repository report nothing.
+
+### Security: dependency updates
+- **The scanner and the self-hosted server use zod 4.6.7, which fixes a memory-exhaustion advisory (GHSA-mrhx-c7xc-m3w5).** Every configuration resolves exactly as before.
+- **The self-hosted server uses fastify 5.12.7 and fast-uri 3.1.9 / 4.2.3**, which fix a header-validation bypass and four URI-parsing advisories.
+
+### Server image 0.4.7 (Enterprise, released on its own)
+<!-- covers: Self-hosted server (ships with the next server release) -->
+- **Server 0.4.7 was released on 2026-11-10 with a patched Node.js runtime** (CVE-2026-111497) and no known runtime dependency advisories.
+- **Coming with the next server release:** listing and revoking host-minted tokens on the host, `expiresAt` on `GET /api/v1/whoami`, more links on the dashboards, and a provisional-grade marker.
+
+---
+
 ## [1.5.20] — 2026-10-21
 
 > **Hotfix. No server release:** server 0.4.5 stays current. **No Action change:** the Action's `image-pin` default rides
