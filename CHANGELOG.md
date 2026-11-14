@@ -8,6 +8,15 @@ Live release notes for the hosted scanner: [pullguard.dev](https://www.pullguard
 
 ## [Unreleased]
 
+### Server image 0.4.8 (Enterprise, released on its own) — 2026-11-14
+> A server-only release. The scanner and the Action are unchanged; `@v1` and the `:1` image stay on v1.5.21.
+
+- **The server image runs the current Node.js security release.** Node.js 22.23.5 was published on 11 November 2026 as a security release, with HTTP/2 and TLS advisories rated high. Server 0.4.7 carries 22.23.4; 0.4.8 moves to 22.23.5. An image scanner may flag 0.4.7 for that release.
+- **Host-minted tokens can be listed and revoked on the host** with `pullguard-server token list` and `pullguard-server token revoke`, and `GET /api/v1/whoami` shows when a token expires.
+- **Links on the landing, comparison and triage pages work.**
+- **One licence-signing authority.** The server accepts licence keys signed by the current authority only. Every key issued to a customer is signed by it.
+- **Upgrading:** back up the data directory and the audit anchor file, change the image tag to `0.4.8`, restart. The image is signed; its digest is `sha256:6a607aefd3abe319bfc68f15e5222e061b385685fc9fc1dc2dee5320a01ee790`.
+
 ## [1.5.21] — 2026-11-11
 
 > **No server release in this version:** server 0.4.7 (released on its own on 2026-11-10) stays current. The Action's `image-pin` default rides the `:1` image tag, so `@v1` users get the new scanner on their next scan. **Action change:** a new input, `allow-incomplete-security`. **Read the first two sections before upgrading a gated pipeline:** a build that passed without a complete security result can now fail, and very large repositories will show more findings.
