@@ -8,6 +8,33 @@ Live release notes for the hosted scanner: [pullguard.dev](https://www.pullguard
 
 ## [Unreleased]
 
+## [1.5.22] — 2026-11-14
+
+> **A release for image scanners.** The scanner and the server are the same code as 1.5.21 and server 0.4.8; what changes is what their images contain. **No Action change.** The Action's `image-pin` default rides the `:1` image tag, so `@v1` users get the new image on their next scan.
+
+### Images ship without a package manager
+- **The scanner image and the self-hosted server image no longer contain npm, npx, corepack or yarn.** The Node.js base image brings those tools with their own dependencies, and an image scanner reports the advisories filed against them on our images: 6 rated high on scanner v1.5.21 and 10 on server 0.4.8, all inside npm. Neither product runs them.
+- **Nothing else changes.** The scanner reports the same findings as 1.5.21, and the server behaves as 0.4.8 does.
+- **If you ran `npm` or `npx` inside one of our images** (no documented use does), that command is no longer there. `node` and, in the scanner image, `git` are unchanged.
+- **One limit:** the tools are removed from the image's file system, which is what an image scanner reads by default. A scanner set to read every layer of the base image still sees the base image's own copy.
+
+### Images are checked with an image scanner
+- **Every release is now gated on a scan of its images**, and the published images are scanned again every day, so a new advisory against something we ship is seen within a day.
+- **What this does not cover:** an image scanner does not report the Node.js runtime itself. A separate daily check compares the Node.js version in every image against Node.js security releases.
+- **Server image, known and listed:** 44 entries in Debian base packages for which Debian has published no fix (1 critical, 38 high, 5 not yet scored). Your image scanner will show them. We track each by name and review them within 90 days; we have not yet assessed whether the server can reach the affected code. The scanner image has none.
+
+### Server image 0.4.9 (Enterprise, ships with this release)
+- **Carries the two changes above.** No server behaviour changes. Upgrading is the same as for 0.4.8: back up the data directory and the audit anchor file, change the image tag to `0.4.9`, restart.
+
+### Server image 0.4.8 (Enterprise, released on its own)
+> A server-only release of 14 November 2026. The scanner and the Action were unchanged.
+
+- **The server image runs the current Node.js security release.** Node.js 22.23.5 was published on 11 November 2026 as a security release, with HTTP/2 and TLS advisories rated high. Server 0.4.7 carries 22.23.4; 0.4.8 moves to 22.23.5. An image scanner may flag 0.4.7 for that release.
+- **Host-minted tokens can be listed and revoked on the host** with `pullguard-server token list` and `pullguard-server token revoke`, and `GET /api/v1/whoami` shows when a token expires.
+- **Links on the landing, comparison and triage pages work.**
+- **One licence-signing authority.** The server accepts licence keys signed by the current authority only. Every key issued to a customer is signed by it.
+- **Upgrading:** back up the data directory and the audit anchor file, change the image tag to `0.4.8`, restart. The image is signed; its digest is `sha256:6a607aefd3abe319bfc68f15e5222e061b385685fc9fc1dc2dee5320a01ee790`.
+
 ## [1.5.21] — 2026-11-11
 
 > **No server release in this version:** server 0.4.7 (released on its own on 2026-11-10) stays current. The Action's `image-pin` default rides the `:1` image tag, so `@v1` users get the new scanner on their next scan. **Action change:** a new input, `allow-incomplete-security`. **Read the first two sections before upgrading a gated pipeline:** a build that passed without a complete security result can now fail, and very large repositories will show more findings.
