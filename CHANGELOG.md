@@ -8,6 +8,15 @@ Live release notes for the hosted scanner: [pullguard.dev](https://www.pullguard
 
 ## [Unreleased]
 
+### Server image 0.5.0: a minimal base (Enterprise, released on its own) — 2026-11-17
+> A server-only release. The scanner and the Action are unchanged; `@v1` and the `:1` image stay on v1.5.22.
+
+- **The server image no longer contains a Linux distribution.** Until 0.4.9 it was built on Debian 12, and Debian ships packages there with advisories it has published no fix for: 1 critical, 38 high and 5 not yet scored, in packages the server never uses. An image scanner reports every one against the image. From 0.5.0 the image holds the C runtime, the TLS libraries, certificates, time zone data, the Node.js binary and the server. Measured on both platforms: no critical, no high, and 2 not yet scored (both in the C library, both also present before); 14 operating system packages where there were 88.
+- **Nothing about running it changes.** Same user (uid 1000), same data directory, same database, same port, same `pullguard-server token …` and `pullguard-server audit verify` commands, same health check. An upgrade is a re-pull and a restart.
+- **Two things an operator can notice.** There is no shell in the image, so `docker exec <container> sh` has nothing to open, and a container health check written in shell form (`CMD-SHELL`) fails. The health check we ship, and the Kubernetes probes in the chart, are unaffected. This is why the version is 0.5.0: a deployment pinned to `0.4` stays on 0.4.9 until you move the pin; `0` and `latest` move with this release.
+- **Our release checks hold the image to this.** A server image that grows back towards a full distribution fails them.
+- **Upgrading:** back up the data directory and the audit anchor file, change the image tag to `0.5.0` (or `0.5`), restart. The image is signed; its digest is `sha256:9c4b8253a03b6955403f439d986105d62241220483bb793ba2209a2dc5f13f7a`.
+
 ## [1.5.22] — 2026-11-14
 
 > **A release for image scanners.** The scanner and the server are the same code as 1.5.21 and server 0.4.8; what changes is what their images contain. **No Action change.** The Action's `image-pin` default rides the `:1` image tag, so `@v1` users get the new image on their next scan.
